@@ -229,7 +229,8 @@ class TagLib(object):
         ('lyric', False, Lyric), 
         ('syllabic', True), 
         ('text', True),
-        ('extend', True), 
+        ('elision', False), 
+        ('extend', False), 
         ('trill-mark', False, TrillMark), 
         ('mordent', False, Mordent), 
         ('inverted-mordent', False, InvertedMordent), 
@@ -3205,7 +3206,14 @@ class Handler(xml.sax.ContentHandler):
             self._mxObjs['lyric'].syllabic = self._currentTag.charData
 
         elif name == 'text':
-            self._mxObjs['lyric'].text = self._currentTag.charData
+            if self._mxObjs['lyric'].text is None:
+                self._mxObjs['lyric'].text = self._currentTag.charData
+            else:
+                self._mxObjs['lyric'].text += self._currentTag.charData
+
+        elif name == 'elision':
+            if self._mxObjs['lyric'].text is not None:
+                self._mxObjs['lyric'].text += '\u00a0'
 
         elif name == 'extend':
             self._mxObjs['lyric'].extend = True
