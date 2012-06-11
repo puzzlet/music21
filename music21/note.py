@@ -131,7 +131,7 @@ class Lyric(music21.JSONSerializer):
         if self.syllabic is not None:
             buf.append('syllabic={}'.format(self.syllabic))
         if self.text is not None:
-            buf.append('text="{}"'.format(self.text))
+            buf.append('text={}'.format(repr(self.text)))
         return '<{}>'.format(' '.join(buf))
 
 

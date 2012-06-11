@@ -3213,7 +3213,7 @@ class Handler(xml.sax.ContentHandler):
 
         elif name == 'elision':
             if self._mxObjs['lyric'].text is not None:
-                self._mxObjs['lyric'].text += '\u00a0'
+                self._mxObjs['lyric'].text += u'\u00a0'
 
         elif name == 'extend':
             self._mxObjs['lyric'].extend = True
