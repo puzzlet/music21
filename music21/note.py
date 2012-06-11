@@ -92,13 +92,15 @@ class Lyric(music21.JSONSerializer):
     
     '''
 
-    def __init__(self, text=None, number=1, syllabic=None, applyRaw = False):
+    def __init__(self, text=None, number=1, syllabic=None, extend=False, applyRaw = False):
         music21.JSONSerializer.__init__(self)
 
         # these are set by _setTextAndSyllabic
         self.text = None
         # given as begin, middle, end, or single
         self.syllabic = None
+
+        self.extend = extend
         
         self._setTextAndSyllabic(text, applyRaw)
 
@@ -112,23 +114,25 @@ class Lyric(music21.JSONSerializer):
         >>> from music21 import *
         >>> l = note.Lyric()
         >>> l.jsonAttributes()
-        ['text', 'syllabic', 'number']
+        ['text', 'syllabic', 'number', 'extend']
 
         '''
         # do not need self._autoGatherAttributes()
         # as this uses public attributes (not underscore leading)
         # must explicitly define
-        return ['text', 'syllabic', 'number']
+        return ['text', 'syllabic', 'number', 'extend']
 
 
     def __repr__(self):
+        buf = ['music21.note.Lyric']
+        buf.append('number={}'.format(self.number))
+        if self.extend:
+            buf.append('extend')
+        if self.syllabic is not None:
+            buf.append('syllabic={}'.format(self.syllabic))
         if self.text is not None:
-            if self.syllabic is not None:
-                return '<music21.note.Lyric number=%d syllabic=%s text="%s">' % (self.number, self.syllabic, self.text)
-            else:
-                return '<music21.note.Lyric number=%d text="%s">' % (self.number, self.text)
-        else:
-            return '<music21.note.Lyric number=%d>' % (self.number)
+            buf.append('text="{}"'.format(self.text))
+        return '<{}>'.format(' '.join(buf))
 
 
     def _setTextAndSyllabic(self, rawText, applyRaw):

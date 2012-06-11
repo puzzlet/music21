@@ -229,6 +229,7 @@ class TagLib(object):
         ('lyric', False, Lyric), 
         ('syllabic', True), 
         ('text', True),
+        ('extend', True), 
         ('trill-mark', False, TrillMark), 
         ('mordent', False, Mordent), 
         ('inverted-mordent', False, InvertedMordent), 
@@ -2579,6 +2580,7 @@ class Lyric(MusicXMLElement):
         # entities
         self.syllabic = None # begin, middle, end, or single
         self.text = None
+        self.extend = False
 
     def filterLyric(self, text):
         '''
@@ -2599,6 +2601,7 @@ class Lyric(MusicXMLElement):
         c.append(('syllabic', self.syllabic))
         # only filter when getting components
         c.append(('text', self.filterLyric(self.text)))
+        c.append(('extend', self.extend))
         return c
 
 
@@ -3203,6 +3206,9 @@ class Handler(xml.sax.ContentHandler):
 
         elif name == 'text':
             self._mxObjs['lyric'].text = self._currentTag.charData
+
+        elif name == 'extend':
+            self._mxObjs['lyric'].extend = True
 
         elif name == 'trill-mark': 
             self._mxObjs['ornaments'].append(self._mxObjs['trill-mark'])

@@ -733,6 +733,7 @@ def lyricToMx(l):
     mxLyric.set('number', l.number)
     # mxl expects begin, middle, end, as well as single
     mxLyric.set('syllabic', l.syllabic)
+    mxLyric.set('extend', l.extend)
     return mxLyric
 
 
@@ -748,6 +749,7 @@ def mxToLyric(mxLyric, inputM21=None):
     l.text = mxLyric.get('text')
     l.number = mxLyric.get('number')
     l.syllabic = mxLyric.get('syllabic')
+    l.extend = mxLyric.get('extend')
 
 
 #-------------------------------------------------------------------------------
