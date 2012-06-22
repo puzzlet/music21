@@ -754,7 +754,6 @@ def parse(workName, movementNumber=None, number=None,
     will be ignored.  This should not be needed if the file has been changed, since the filetime of the file and
     the filetime of the pickled version are compared.  But it might be needed if the music21 parsing routine has changed.
     
-
     Example, get a chorale by Bach.  Note that the source type does not need to be
     specified, nor does the name Bach even (since it's the only piece with the title BWV 66.6)
 
@@ -763,6 +762,14 @@ def parse(workName, movementNumber=None, number=None,
     >>> len(bachChorale.parts)
     4
     
+    OMIT_FROM_DOCS
+    
+    >>> bachChorale.corpusFilepath
+    'bach/bwv66.6.mxl'
+    
+    >>> s = corpus.parse('trecento/PMFC_13_05-Gloria Rosetta.mxl')
+    >>> s.corpusFilepath
+    'trecento/PMFC_13_05-Gloria Rosetta.mxl'
     '''
     if workName in [None, '']:
         raise CorpusException('a work name must be provided as an argument')
@@ -787,9 +794,27 @@ def parse(workName, movementNumber=None, number=None,
         raise CorpusException("Could not find a work that met this criteria %s" % workName)
     else: # greater than zero:
         fp = post[0] # get first
-      
-    return converter.parse(fp, forceSource=forceSource, number=number)
+        
+    #return converter.parse(fp, forceSource=forceSource, number=number)
 
+    streamObj = converter.parse(fp, forceSource=forceSource, number=number)
+    _addCorpusFilepath(streamObj, fp)
+    return streamObj
+
+def _addCorpusFilepath(streamObj, filepath):   
+    # metadata attribute added to store the file path, for use later in identifying the score
+    #if streamObj.metadata == None:
+    #    streamObj.insert(metadata.Metadata())
+    cfp = common.getCorpusFilePath()
+    lenCFP = len(cfp) + len(os.sep)
+    if filepath.startswith(cfp):
+        fp2 = filepath[lenCFP:]
+        ### corpus fix for windows
+        dirsEtc = fp2.split(os.sep)
+        fp3 = '/'.join(dirsEtc)
+        streamObj.corpusFilepath = fp3
+    else:
+        streamObj.corpusFilepath = filepath
 
 def parseWork(*arguments, **keywords):
     '''This function exists for backwards compatibility. All calls should use :func:`~music21.corpus.parse` instead.
