@@ -5,11 +5,13 @@
 #
 # Authors:      Christopher Ariza
 #
-# Copyright:    (c) 2011 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2011 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 
-'''The features implemented here are based on those found in jSymbolic and defined in Cory McKay's MA Thesis, "Automatic Genre Classification of MIDI Recordings"
+'''
+The features implemented here are based on those found in jSymbolic and 
+defined in Cory McKay's MA Thesis, "Automatic Genre Classification of MIDI Recordings"
 
 The LGPL jSymbolic system can be found here: http://jmir.sourceforge.net/jSymbolic.html
 '''
@@ -19,9 +21,9 @@ import unittest
 import copy
 import math
 
-import music21
-
 from music21 import common
+from music21 import base
+from music21 import exceptions21
 from music21.features import base as featuresModule
 
 from music21 import environment
@@ -63,11 +65,11 @@ class DurationFeature(featuresModule.FeatureExtractor):
 class MelodicIntervalHistogramFeature(featuresModule.FeatureExtractor):
     '''
     >>> from music21 import *
-    >>> s = corpus.parse('hwv56/movement3-05.md')
+    >>> s = corpus.parse('bwv887')
     >>> fe = features.jSymbolic.MelodicIntervalHistogramFeature(s)
     >>> f = fe.extract()
     >>> f.vector
-    [1.0, 0.2222..., 0.777777777..., 0.44444..., 0.1111..., 0.44444..., 0.11111..., 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    [0.146..., 0.853..., 1.0, 0.292..., 0.209..., 0.139..., 0.101..., 0.257..., 0.22299..., 0.456..., 0.1289..., 0.0871..., 0.233..., 0.07317..., 0.03832..., 0.031..., 0.0278..., 0.0139..., 0.01742..., 0.00348..., 0.0, 0.017..., 0.003484..., 0.01742..., 0.00348..., 0.0, 0.00348..., 0.0, 0.0174..., 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     '''
     id = 'M1'
     def __init__(self, dataOrStream=None, *arguments, **keywords):
@@ -2417,7 +2419,7 @@ class MaximumNumberOfIndependentVoicesFeature(featuresModule.FeatureExtractor):
         for c in self.data['chordify.getElementsByClass.Chord']:
             # create a group to aggregate all groups for each pitch in this 
             # chord
-            g = music21.Groups()
+            g = base.Groups()
             for p in c.pitches:
                 for gSub in p.groups:
                     g.append(gSub) # add to temporary group; will act as a set
@@ -2458,7 +2460,7 @@ class AverageNumberOfIndependentVoicesFeature(featuresModule.FeatureExtractor):
         for c in self.data['chordify.getElementsByClass.Chord']:
             # create a group to aggregate all groups for each pitch in this 
             # chord
-            g = music21.Groups()
+            g = base.Groups()
             for p in c.pitches:
                 for gSub in p.groups:
                     g.append(gSub) # add to temporary group; will act as a set
@@ -2493,7 +2495,7 @@ class VariabilityOfNumberOfIndependentVoicesFeature(
         for c in self.data['chordify.getElementsByClass.Chord']:
             # create a group to aggregate all groups for each pitch in this 
             # chord
-            g = music21.Groups()
+            g = base.Groups()
             for p in c.pitches:
                 for gSub in p.groups:
                     g.append(gSub) # add to temporary group; will act as a set
@@ -3993,6 +3995,7 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    import music21
     music21.mainTest(Test)
 
 #------------------------------------------------------------------------------

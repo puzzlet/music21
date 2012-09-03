@@ -1,12 +1,12 @@
-#!/usr/bin/python
+# -*- coding: utf-8 -*-
 #-------------------------------------------------------------------------------
 # Name:         possibility.py
 # Purpose:      music21 class to define rule checking methods for a possibility
 #                represented as a tuple.
 # Authors:      Jose Cabal-Ugaz
 #
-# Copyright:    (c) 2011 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2011 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 '''
 A possibility is a tuple with pitches, and is intended to encapsulate a possible
@@ -67,10 +67,10 @@ The application of these methods is controlled by corresponding instance variabl
 '''
 
 import itertools
-import music21
 import unittest
 
 from music21 import chord
+from music21 import exceptions21
 from music21 import interval
 from music21 import pitch
 from music21 import voiceLeading
@@ -221,7 +221,7 @@ def pitchesWithinLimit(possibA, maxPitch = pitch.Pitch('B5')):
     True
     >>> resPossib = resolution.dominantSeventhToMajorTonic(domPossib)
     >>> resPossib # Contains C6 > B5
-    (C6, E5, C4, C3)
+    (<music21.pitch.Pitch C6>, <music21.pitch.Pitch E5>, <music21.pitch.Pitch C4>, <music21.pitch.Pitch C3>)
     >>> possibility.pitchesWithinLimit(resPossib)
     False 
     '''
@@ -931,9 +931,16 @@ def partPairs(possibA, possibB):
     >>> possibA1 = (C5, G4, E4, C4)
     >>> possibB1 = (B4, F4, D4, D4)
     >>> possibility.partPairs(possibA1, possibA1)
-    [(C5, C5), (G4, G4), (E4, E4), (C4, C4)]
+    [(<music21.pitch.Pitch C5>, <music21.pitch.Pitch C5>), 
+     (<music21.pitch.Pitch G4>, <music21.pitch.Pitch G4>), 
+     (<music21.pitch.Pitch E4>, <music21.pitch.Pitch E4>), 
+     (<music21.pitch.Pitch C4>, <music21.pitch.Pitch C4>)]
     >>> possibility.partPairs(possibA1, possibB1)
-    [(C5, B4), (G4, F4), (E4, D4), (C4, D4)]
+    [(<music21.pitch.Pitch C5>, <music21.pitch.Pitch B4>), 
+     (<music21.pitch.Pitch G4>, <music21.pitch.Pitch F4>), 
+     (<music21.pitch.Pitch E4>, <music21.pitch.Pitch D4>), 
+     (<music21.pitch.Pitch C4>, <music21.pitch.Pitch D4>)]
+
     '''
     return list(itertools.izip(possibA, possibB))
 
@@ -954,7 +961,7 @@ consequentPossibilityMethods.sort(None, lambda x: x.__name__)
 _DOC_ORDER = singlePossibilityMethods + [partPairs] + consequentPossibilityMethods
 
 
-class PossibilityException(music21.Music21Exception):
+class PossibilityException(exceptions21.Music21Exception):
     pass
 
 #-------------------------------------------------------------------------------
@@ -964,6 +971,7 @@ class Test(unittest.TestCase):
         pass
 
 if __name__ == "__main__":
+    import music21
     music21.mainTest(Test)
 
 #------------------------------------------------------------------------------

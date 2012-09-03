@@ -20,7 +20,6 @@ import unittest
 import doctest
 
 from music21 import corpus
-import music21
 from string import Template
 
 
@@ -58,8 +57,9 @@ def musicxmlText(outputStream):
     >>> 'score-partwise' in output
     True
     '''
-    musicxml = outputStream.musicxml
-    return (musicxml.encode('utf-8'), 'text/plain; charset=utf-8')   
+    from music21.musicxml import translate
+    musicxmlString = translate.music21ObjectToMusicXML(outputStream)
+    return (musicxmlString.encode('utf-8'), 'text/plain; charset=utf-8')   
 
 def musicxmlFile(outputStream):
     '''
@@ -73,8 +73,9 @@ def musicxmlFile(outputStream):
     >>> 'score-partwise' in output
     True
     '''
-    musicxml = outputStream.musicxml
-    return (musicxml.encode('utf-8'), 'application/vnd.recordare.musicxml+xml; charset=utf-8')
+    from music21.musicxml import translate
+    musicxmlString = translate.music21ObjectToMusicXML(outputStream)
+    return (musicxmlString.encode('utf-8'), 'application/vnd.recordare.musicxml+xml; charset=utf-8')
     
 def vexflow(outputStream):
     '''
@@ -121,10 +122,10 @@ def noteflightEmbed(outputStream):
     >>> contentType
     'text/html; charset=utf-8'
     '''
-    
-    musicxml = outputStream.musicxml
-    musicxml = musicxml.replace('\n','')
-    musicxml = musicxml.replace('\'','\\\'')
+    from music21.musicxml import translate
+    musicxmlString = translate.music21ObjectToMusicXML(outputStream)    
+    musicxmlString = musicxmlString.replace('\n','')
+    musicxmlString = musicxmlString.replace('\'','\\\'')
     htmlStr = """
 <html>
 <head>
@@ -160,7 +161,7 @@ function setup() {
     """
     htmlData = Template(htmlStr)
     
-    htmlData = htmlData.safe_substitute(musicxml=musicxml)
+    htmlData = htmlData.safe_substitute(musicxml=musicxmlString)
     return (htmlData.encode('utf-8'), 'text/html; charset=utf-8')   
 
 #-------------------------------------------------------------------------------
@@ -173,6 +174,7 @@ class Test(unittest.TestCase):
         pass
 
 if __name__ == '__main__':
+    import music21
     music21.mainTest(Test)
 
 #------------------------------------------------------------------------------

@@ -6,8 +6,8 @@
 # Authors:      Michael Scott Cuthbert
 #               Christopher Ariza 
 #
-# Copyright:    (c) 2009-2011 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2009-2012 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 '''Utility constants, dictionaries, functions, and objects used throughout music21.
 '''
@@ -25,6 +25,8 @@ import imp
 import random
 import inspect
 import unicodedata
+
+from music21 import exceptions21
 
 
 # define file extensions for various formats
@@ -90,10 +92,10 @@ def getMissingImportStr(modNameList):
     that gives instructions on how to expand music21 with optional packages.
     
     >>> from music21 import *
-    >>> common.getMissingImportStr(['PIL'])
-    'Certain music21 functions might need the optional package PIL; if you run into errors, install it by following the instructions at http://mit.edu/music21/doc/html/installAdditional.html'
-    >>> common.getMissingImportStr(['PIL', 'numpy'])
-    'Certain music21 functions might need these optional packages: PIL, numpy; if you run into errors, install it by following the instructions at http://mit.edu/music21/doc/html/installAdditional.html'
+    >>> common.getMissingImportStr(['matplotlib'])
+    'Certain music21 functions might need the optional package matplotlib; if you run into errors, install it by following the instructions at http://mit.edu/music21/doc/html/installAdditional.html'
+    >>> common.getMissingImportStr(['matplotlib', 'numpy'])
+    'Certain music21 functions might need these optional packages: matplotlib, numpy; if you run into errors, install it by following the instructions at http://mit.edu/music21/doc/html/installAdditional.html'
 
     '''
     if len(modNameList) == 0:
@@ -858,11 +860,11 @@ def dotMultiplier(dots):
 
 def decimalToTuplet(decNum):
     '''
-    For simple decimals (mostly > 1), a quick way to figure out the
+    For simple decimals (usually > 1), a quick way to figure out the
     fraction in lowest terms that gives a valid tuplet.
 
     No it does not work really fast.  No it does not return tuplets with
-    denominators over 100.  Too bad, math geeks.  This is real life.
+    denominators over 100.  Too bad, math geeks.  This is real life.  :-)
 
     returns (numerator, denominator)
 
@@ -871,6 +873,19 @@ def decimalToTuplet(decNum):
     (3, 2)
     >>> common.decimalToTuplet(1.25)
     (5, 4)
+    
+    If decNum is < 1, the denominator will be greater than the numerator:
+    
+    >>> common.decimalToTuplet(.8)
+    (4, 5)
+
+    If decNum is <= 0, returns a ZeroDivisionError:
+
+    >>> common.decimalToTuplet(-.02)
+    Traceback (most recent call last):
+    ZeroDivisionError: number must be greater than zero
+    
+    
     '''
 
     def findSimpleFraction(working):
@@ -880,6 +895,13 @@ def decimalToTuplet(decNum):
                 if almostEquals(working, (j+0.0)/i):
                     return (int(j), int(i))
         return (0,0)
+
+    flipNumerator = False
+    if decNum <= 0:
+        raise ZeroDivisionError("number must be greater than zero")
+    if decNum < 1:
+        flipNumerator = True
+        decNum = 1.0/decNum
 
     remainder, multiplier = math.modf(decNum)
     working = decNum/multiplier
@@ -893,7 +915,11 @@ def decimalToTuplet(decNum):
     gcd = euclidGCD(int(jy), int(iy))
     jy = jy/gcd
     iy = iy/gcd
-    return (int(jy), int(iy))
+    
+    if flipNumerator is False:
+        return (int(jy), int(iy))
+    else:
+        return (int(iy), int(jy))
 
 
 
@@ -1266,8 +1292,8 @@ def stripAddresses(textString, replacement = "ADDRESS"):
     
     while this is left alone:
 
-    >>> common.stripAddresses("{0.0} <music21.humdrum.MiscTandam *>I humdrum control>")
-    '{0.0} <music21.humdrum.MiscTandam *>I humdrum control>'
+    >>> common.stripAddresses("{0.0} <music21.humdrum.MiscTandem *>I humdrum control>")
+    '{0.0} <music21.humdrum.MiscTandem *>I humdrum control>'
     '''
     ADDRESS = re.compile('0x[0-9A-F]+')
     return ADDRESS.sub(replacement, textString)
@@ -1457,7 +1483,7 @@ def getCorpusContentDirs():
     dir = getCorpusFilePath()
     post = []
     # dirs to exclude; all files will be retained
-    exclude = ['__init__.py', 'base.py', 'metadataCache', 'virtual.py'] 
+    exclude = ['__init__.py', 'base.py', 'metadataCache', 'virtual.py', 'chorales.py'] 
     for fn in os.listdir(dir):
         if fn not in exclude:
             if not fn.endswith('.pyc') and not fn.startswith('.'):
@@ -2004,7 +2030,7 @@ class Timer(object):
         return str(round(t,3))
 
 
-class Music21CommonException(Exception):
+class Music21CommonException(exceptions21.Music21Exception):
     pass
 
 #-------------------------------------------------------------------------------
@@ -2176,13 +2202,16 @@ _DOC_ORDER = [fromRoman, toRoman, Scalar]
 
 if __name__ == "__main__":
     if len(sys.argv) == 1: # normal conditions
+        import music21
+        music21.mainTest(Test)
+
 
         ## do this the old way to avoid music21 import
-        s1 = doctest.DocTestSuite(__name__, optionflags = (doctest.ELLIPSIS | doctest.NORMALIZE_WHITESPACE))
-        s2 = unittest.defaultTestLoader.loadTestsFromTestCase(Test)
-        s1.addTests(s2)
-        runner = unittest.TextTestRunner()
-        runner.run(s1)  
+#        s1 = doctest.DocTestSuite(__name__, optionflags = (doctest.ELLIPSIS | doctest.NORMALIZE_WHITESPACE))
+#        s2 = unittest.defaultTestLoader.loadTestsFromTestCase(Test)
+#        s1.addTests(s2)
+#        runner = unittest.TextTestRunner()
+#        runner.run(s1)  
 
     elif len(sys.argv) > 1:
         t = Test()

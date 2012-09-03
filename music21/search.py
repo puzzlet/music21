@@ -5,14 +5,14 @@
 #
 # Authors:      Michael Scott Cuthbert
 #
-# Copyright:    (c) 2011 The music21 Project
+# Copyright:    Copyright © 2011-2012 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 '''
 Methods and Classes useful in searching within scores.
 
 For searching a group of scores see the search functions within
-:ref:~`moduleCorpusBase`.
+:ref:`moduleCorpus.Base` .
 
 '''
 
@@ -20,11 +20,13 @@ import copy
 import difflib
 import math
 import unittest, doctest
-import music21
-import music21.note
-import music21.duration
 
-class WildcardDuration(music21.duration.Duration):
+from music21 import base
+from music21 import exceptions21
+from music21 import note
+from music21 import duration
+
+class WildcardDuration(duration.Duration):
     '''
     a wildcard duration (it might define a duration
     in itself, but the methods here will see that it
@@ -32,7 +34,7 @@ class WildcardDuration(music21.duration.Duration):
     '''
     pass
 
-class Wildcard(music21.Music21Object):
+class Wildcard(base.Music21Object):
     '''
     An object that may have some properties defined, but others not that
     matches a single object in a music21 stream.  Equivalent to the
@@ -46,7 +48,7 @@ class Wildcard(music21.Music21Object):
     >>> st1.append(wc1)    
     '''
     def __init__(self):
-        music21.Music21Object.__init__(self)
+        base.Music21Object.__init__(self)
         self.duration = WildcardDuration()
 
 def rhythmicSearch(thisStream, searchStream):
@@ -139,6 +141,11 @@ def rhythmicSearch(thisStream, searchStream):
     
     
     OMIT_FROM_DOCS
+    
+    >>> s = stream.Stream()
+    >>> search.rhythmicSearch(pf, s)
+    Traceback (most recent call last):
+    SearchException: the search Stream cannot be empty
     
     why doesn't this work?  thisStream[found].expressions.append(expressions.TextExpression("*"))
     
@@ -396,7 +403,7 @@ def translateNoteToByte(n):
     >>> ord(search.translateNoteToByte(n)) == n.midi
     True
 
-
+    Chords are currently just searched on the first note (or treated as a rest if none)
     '''
     if n.isRest:
         return chr(127)
@@ -410,10 +417,11 @@ def translateNoteToByte(n):
 
 def translateNoteWithDurationToBytes(n):
     '''
-    takes a note.Note object and translates it to a two-byte representation
-
+    takes a note.Note object and translates it to a three-byte representation.
+    
     currently returns the chr() for the note's midi number. or chr(127) for rests
     followed by the log of the quarter length (fitted to 1-127, see formula below)
+    followed by 's', 'c', or 'e' if includetieByte is True and there is a tie
 
     >>> from music21 import *
     >>> n = note.Note("C4")
@@ -424,6 +432,11 @@ def translateNoteWithDurationToBytes(n):
     >>> (2**(ord(trans[1])/10.0))/256  # approximately 3
     2.828...
     
+    >>> n.tie = tie.Tie('stop')
+    >>> trans = search.translateNoteWithDurationToBytes(n)
+    >>> trans
+    '<_e'
+    
     '''
     firstByte = translateNoteToByte(n)
     duration1to127 = int(math.log(n.duration.quarterLength * 256, 2)*10)
@@ -432,8 +445,44 @@ def translateNoteWithDurationToBytes(n):
     elif duration1to127 == 0:
         duration1to127 = 1
     secondByte = chr(duration1to127)
-    return firstByte + secondByte
+    
+    thirdByte = translateNoteTieToByte(n)
+    
+    return firstByte + secondByte + thirdByte
 
+def translateNoteTieToByte(n):
+    '''
+    takes a note.Note object and returns a one-byte representation
+    of its tie status.
+    's' if start tie, 'e' if stop tie, 'c' if continue tie, and '' if no tie
+    
+    >>> from music21 import *
+    >>> n = note.Note("E")
+    >>> translateNoteTieToByte(n)
+    ''
+    
+    >>> n.tie = tie.Tie("start")
+    >>> translateNoteTieToByte(n)
+    's'
+    
+    >>> n.tie.type = 'continue'
+    >>> translateNoteTieToByte(n)
+    'c'
+    
+    >>> n.tie.type = 'stop'
+    >>> translateNoteTieToByte(n)
+    'e'
+    '''
+    if n.tie is None:
+        return ''
+    elif n.tie.type == 'start':
+        return 's'
+    elif n.tie.type == 'continue':
+        return 'c'
+    elif n.tie.type == 'stop':
+        return 'e'
+    else:
+        return ''
 
 def translateDurationToBytes(n):
     '''
@@ -533,13 +582,11 @@ def mostCommonMeasureRythms(streamIn, transposeDiatonic = False):
     sortedDicts = sorted(returnDicts, key=lambda k: k['number'], reverse=True)
     return sortedDicts
 
-class SearchException(music21.Music21Exception):
+class SearchException(exceptions21.Music21Exception):
     pass
 
 
 class Test(unittest.TestCase):
-    def runTest(self):
-        pass
 
     def testCopyAndDeepcopy(self):
         '''Test copying all objects defined in this module
@@ -565,6 +612,7 @@ _DOC_ORDER = []
 
 
 if __name__ == "__main__":
+    import music21
     music21.mainTest(Test)
 
 #------------------------------------------------------------------------------

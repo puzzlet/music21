@@ -5,14 +5,30 @@
 #
 # Authors:      Christopher Ariza
 #
-# Copyright:    (c) 2009-2012 The music21 Project
+# Copyright:    Copyright © 2009-2012 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 '''This module defines an object representation of MusicXML, used for converting to and from MusicXML and music21.
 '''
+import sys
 
-import sys, os, copy
+# in order for sax parsing to properly handle unicode strings w/ unicode chars
+# stored in StringIO.StringIO, this update is necessary
+# http://stackoverflow.com/questions/857597/setting-the-encoding-for-sax-parser-in-python
+
+# N.B. Without this change reload(sys) breaks IDLE!
+currentStdOut = sys.stdout
+currentStdIn = sys.stdin
+currentStdErr = sys.stderr
+reload(sys)
+sys.setdefaultencoding('utf-8')
+sys.stdout = currentStdOut
+sys.stdin = currentStdIn
+sys.stderr = currentStdErr
+
+import os, copy
 import unittest, doctest
+import codecs
 import StringIO # this module is not supported in python3
 # use io.StringIO  in python 3, avail in 2.6, not 2.5
 
@@ -24,9 +40,10 @@ except ImportError:
 import xml.sax
 import xml.dom.minidom
 
-import music21
+from music21.base import VERSION
 from music21 import defaults
 from music21 import common
+from music21 import exceptions21
 from music21 import xmlnode
 xml.dom.minidom.Element.writexml = xmlnode.fixed_writexml
 
@@ -106,16 +123,16 @@ def booleanToYesNo(value):
     return 'no'
 
 #-------------------------------------------------------------------------------
-class TagException(Exception):
+class TagException(exceptions21.Music21Exception):
     pass
 
-class TagLibException(Exception):
+class TagLibException(exceptions21.Music21Exception):
     pass
 
-class MusicXMLException(Exception):
+class MusicXMLException(exceptions21.Music21Exception):
     pass
 
-class DocumentException(Exception):
+class DocumentException(exceptions21.Music21Exception):
     pass
 
 #-------------------------------------------------------------------------------
@@ -697,15 +714,36 @@ class Score(MusicXMLElementList):
     #---------------------------------------------------------------------------
     # utility methods unique to the score
     def getPartIds(self):
-        '''A quick way to get all valid part ids
+        '''
+        A quick way to get all valid part ids in the componentList
         '''
         post = []        
         for part in self.componentList:
             post.append(part.get('id'))
         return post
 
-    def getPartNames(self):
-        '''A quick way to get all valid par ids
+    def getPartIdsFromPartListObj(self):
+        '''
+        A quick way to get all valid part ids in the partListObj
+        for each one that is a ScorePart
+        '''
+        post = []        
+        for part in self.partListObj:
+            if isinstance(part, ScorePart):
+                post.append(part.get('id'))
+        return post
+
+    def partIdToNameDict(self):
+        '''
+        A quick way to get a mapping of valid part ids to the part names
+        from a :class:`~music21.musicxml.Score` (musicxml.Score)
+        object in the `.partListObj` property.
+        
+        Returns a dictionary mapping part id to part-name for each  :class:`~music21.musicxml.ScorePart`
+        in `.partListObj`.
+        
+        Note that dictionaries are not sorted, so the order of `.partListObj`
+        still needs to be used.
         '''
         post = {} # return a dictionary
         for part in self.partListObj:
@@ -716,7 +754,9 @@ class Score(MusicXMLElementList):
     def getPartGroupData(self):
         '''Get part groups organized by part id in dictionaries.
 
-        Returns a list of dictionaries, each dictionary containing number, a list of part ids, and a mx PartGroup object.
+        Returns a list of dictionaries, 
+        each dictionary containing number, a list of part ids, 
+        and a mx PartGroup object.
         '''
         open = []
         closed = []
@@ -753,7 +793,7 @@ class Score(MusicXMLElementList):
         >>> from music21.musicxml import testPrimitive
         >>> b = musicxml.Document()
         >>> b.read(testPrimitive.pitches01a)
-        >>> b.score.getScorePart(b.score.getPartNames().keys()[0])
+        >>> b.score.getScorePart(b.score.partIdToNameDict().keys()[0])
         <score-part id=P1 part-name=MusicXML Part>
         '''
         inst = None
@@ -774,7 +814,7 @@ class Score(MusicXMLElementList):
         >>> from music21.musicxml import testPrimitive
         >>> b = musicxml.Document()
         >>> b.read(testPrimitive.ALL[0])
-        >>> c = b.score.getPart(b.score.getPartNames().keys()[0])
+        >>> c = b.score.getPart(b.score.partIdToNameDict().keys()[0])
         >>> c
         <part id=P1 <measure width=983 number=1 <print <system-layout...
         >>> isinstance(c, musicxml.Part)
@@ -783,7 +823,7 @@ class Score(MusicXMLElementList):
         False
         '''
         idFound = None
-        partNames = self.getPartNames()    
+        partNames = self.partIdToNameDict()    
         if partId in partNames.keys():
             idFound = partId
         else:
@@ -971,6 +1011,10 @@ class Encoding(MusicXMLElement):
 
 
 class Software(MusicXMLElement):
+    '''
+    Defines the Software that created this MusicXML document.
+    '''
+    
     def __init__(self):
         MusicXMLElement.__init__(self)
         self._tag = 'software'
@@ -981,7 +1025,20 @@ class Software(MusicXMLElement):
 
 
 class PartList(MusicXMLElementList):
-    '''The PartList defines the parts, as well as their names and abbreviations. Additionally, the order of this list is used as a way specifying arrangements of brackets and/or braces that group parts in partGroup objects. The order of this list thus matters. 
+    '''
+    The PartList defines the parts, as well as their names and abbreviations.
+    
+    It stores the parts in its `.componentList` list in order.
+     
+    Additionally, the order of this list is used as a way 
+    specifying arrangements of brackets and/or braces that 
+    group parts in partGroup objects. 
+    
+    The order of this list thus matters. 
+    
+    The PartList for a score is usually accessed from the 
+    :class:`~music21.musicxml.Score` (`musicxml.Score`) object's
+    `.partListObj` parameter.
     '''
     def __init__(self):
         MusicXMLElementList.__init__(self)
@@ -1118,7 +1175,9 @@ class MIDIInstrument(MusicXMLElement):
 
 
 class Part(MusicXMLElementList):
-    '''This assumes a part-wise part'''
+    '''
+    This assumes a part-wise part
+    '''
     def __init__(self):
         MusicXMLElementList.__init__(self)
         self._tag = 'part'
@@ -2059,17 +2118,20 @@ class DisplayOctave(MusicXMLElement):
 class Notations(MusicXMLElementList):
     '''
     Notations contains many elements, including Ornaments.
+    Most of these are stored in the .componentList
     '''
     def __init__(self, type=None):
         MusicXMLElementList.__init__(self)
         self._tag = 'notations'
-        self.componentList = []  # objects tt are part of this node
+        self.componentList = []  # objects that are part of this node
 
     def _getComponents(self):
         return self.componentList 
 
     def getTuplets(self):
-        '''A quick way to get all tuplets; there is likely only one
+        '''
+        A quick way to get all tuplets; there is likely only one, but
+        we return a list anyhow.
         '''
         post = []        
         for part in self.componentList:
@@ -2078,7 +2140,9 @@ class Notations(MusicXMLElementList):
         return post
 
     def getTieds(self):
-        '''A quick way to get all tied objects; there is likely only one
+        '''
+        A quick way to get all tied objects; there is likely only one,
+        but we return a list anyhow.
         '''
         post = []        
         for part in self.componentList:
@@ -2100,7 +2164,8 @@ class Notations(MusicXMLElementList):
         return post
 
     def getFermatas(self):
-        '''Get a fermata.
+        '''
+        Get all Fermatas from the componentList as a list
         '''
         post = []        
         for part in self.componentList:
@@ -2109,7 +2174,8 @@ class Notations(MusicXMLElementList):
         return post
 
     def getSlurs(self):
-        '''Get a slurs.
+        '''
+        Get all Slurs from the componentList as a list
         '''
         post = []        
         for part in self.componentList:
@@ -2118,7 +2184,9 @@ class Notations(MusicXMLElementList):
         return post
 
     def getOrnaments(self):
-        '''Get all ornament objects stored on a components. There can be more than one.
+        '''
+        Get all ornament objects stored on componentList. 
+        There can be more than one.
         '''
         post = []        
         for part in self.componentList:
@@ -2127,14 +2195,18 @@ class Notations(MusicXMLElementList):
         return post
 
     def getGlissandi(self):
-        '''Get all glissandi objects stored on components. There can be more than one.
+        '''
+        Get all glissandi objects stored on components. 
+        There can be more than one.
 
         >>> from music21 import *
-        >>> g = musicxml.Glissando()
+        >>> g1 = musicxml.Glissando()
+        >>> g2 = musicxml.Glissando()
         >>> n = musicxml.Notations()
-        >>> n.append(g)
+        >>> n.append(g1)
+        >>> n.append(g2)
         >>> n.getGlissandi()
-        [<glissando >]
+        [<glissando >, <glissando >]
         '''
         post = []        
         for part in self.componentList:
@@ -2948,7 +3020,7 @@ class Handler(xml.sax.ContentHandler):
             self.t = TagLib()
         else:
             self.t = tagLib
-        #environLocal.pd(['creating Handler'])
+        #environLocal.printDebug(['creating Handler'])
 
         # this is in use in characters()
         self._currentTag = None # store current tag object
@@ -2961,7 +3033,7 @@ class Handler(xml.sax.ContentHandler):
         # all objects built in processing
         # scoreObj is returned as content, contains everything
         # stores version of m21 used to create this file
-        self._mxObjs['score'] = Score(music21.VERSION) 
+        self._mxObjs['score'] = Score(VERSION) 
 
         # component objects; these might be better stored
         # in a dictionary, where _activeTags['tagName'] = None
@@ -3026,7 +3098,7 @@ class Handler(xml.sax.ContentHandler):
         try:
             self._currentTag = self.t[name]
         except KeyError:
-            #environLocal.pd(['unhandled start element', name])
+            #environLocal.printDebug(['unhandled start element', name])
             return 
 
         self._currentTag.start() 
@@ -3094,7 +3166,7 @@ class Handler(xml.sax.ContentHandler):
         try: # just test to return if not handling
             self.t[name]
         except KeyError:
-            #environLocal.pd(['unhandled end element', name])
+            #environLocal.printDebug(['unhandled end element', name])
             return 
 
         # place most commonly used tags first
@@ -3674,7 +3746,7 @@ class Handler(xml.sax.ContentHandler):
 
         # formerly part of handler part
         elif name == 'part':
-            #environLocal.pd(['got part:', self._mxObjs['part']])
+            #environLocal.printDebug(['got part:', self._mxObjs['part']])
             self._parts.append(self._mxObjs['part']) # outermost container
 
         elif name == 'key':
@@ -3804,7 +3876,7 @@ class Handler(xml.sax.ContentHandler):
 
     #---------------------------------------------------------------------------
     def getContent(self):
-        #environLocal.pd(["self._mxObjs['part-list']", self._mxObjs['part-list']])
+        #environLocal.printDebug(["self._mxObjs['part-list']", self._mxObjs['part-list']])
 
         self._mxObjs['score'].partListObj = self._mxObjs['part-list']
         self._mxObjs['score'].componentList = self._parts
@@ -3834,18 +3906,19 @@ class Document(object):
 
     def _load(self, fileLike, file=True, audit=False):
         saxparser = self._getParser()
-
         #t = common.Timer()
         #t.start()
-
         # call the handler with tagLib
         h = Handler(self.tagLib) 
         saxparser.setContentHandler(h)
 
         if not file:
+            # StringIO.StringIO is supposed to handle unicode
             fileLikeOpen = StringIO.StringIO(fileLike)
+
         else: # TODO: should this be codecs.open()?
             fileLikeOpen = open(fileLike)
+            #fileLikeOpen = codecs.open(fileLike, encoding='utf-8')
 
         # the file always needs to be closed, otherwise
         # subsequent parsing operations produce an unclosed token error
@@ -3871,7 +3944,7 @@ class Document(object):
 
 
     def read(self, xmlString, audit=False):
-        '''load musicxml form a string, instead of a file
+        '''Load MusicXML from a string, instead of from a file.
         '''
         self._load(xmlString, False, audit)
 
@@ -3896,7 +3969,6 @@ class Document(object):
 
     def reprTest(self):
         '''Basic display for testing'''
-
         print('+'*20 + ' ' + self.getBestTitle())
         print(self.score)
         print()
@@ -4016,7 +4088,7 @@ class Test(unittest.TestCase):
 
 
     def testCopyAndDeepcopy(self):
-        '''Test copyinng all objects defined in this module
+        '''Test copying all objects defined in this module
         '''
         import sys, types, copy
         for part in sys.modules[self.__module__].__dict__.keys():
@@ -4749,6 +4821,26 @@ class Test(unittest.TestCase):
         self.assertEqual(glissCount, 2)
         self.assertEqual(wavyCount, 4)
 
+
+
+    def testUnicodeCharsA(self):
+        from music21.musicxml import testPrimitive
+        from music21 import converter
+        from music21.musicxml import translate as musicxmlTranslate
+        
+        # low level musicxml object test
+        d = Document()
+        d.read(testPrimitive.unicodeStrWithNonAscii)
+        # make sure that unicode char is passed through
+        match = d.score.identificationObj.creatorList[0].charData
+        self.assertEqual(u'© Someone Else', match)
+        
+        # the ultimate round trip test
+        s = converter.parse(testPrimitive.unicodeStrWithNonAscii)
+        raw = musicxmlTranslate.music21ObjectToMusicXML(s)
+        s = converter.parse(raw)
+        self.assertEqual(u'© Someone Else', s.metadata.composer)
+
 #-------------------------------------------------------------------------------
 if __name__ == "__main__":
     # this is a temporary hack to get encoding working right
@@ -4756,6 +4848,7 @@ if __name__ == "__main__":
     reload(sys)
     sys.setdefaultencoding("utf-8")
 
+    import music21
     music21.mainTest(Test)
 
 # 

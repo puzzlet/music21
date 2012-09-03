@@ -6,8 +6,8 @@
 # Authors:      Christopher Ariza
 #               Michael Scott Cuthbert
 #
-# Copyright:    (c) 2009-11 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2009-2012 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 
 from __future__ import unicode_literals
@@ -15,10 +15,12 @@ from __future__ import unicode_literals
 
 import unittest, doctest
 import os, sys, webbrowser, re
+import shutil
 import types, inspect
 import codecs
 
 import music21
+from music21 import exceptions21
 
 from music21.abc import base as abc
 from music21.abc import translate as abcTranslate
@@ -29,10 +31,15 @@ from music21.analysis import correlate as analysisCorrelate
 from music21.analysis import discrete as analysisDiscrete
 from music21.analysis import metrical as analysisMetrical
 from music21.analysis import patel as analysisPatel
+from music21.analysis import reduction as analysisReduction
+from music21.analysis import search as analysisSearch
 from music21.analysis import windowed as analysisWindowed
 
-
 from music21 import articulations
+
+from music21.audioSearch import base as audioSearch
+from music21.audioSearch import recording as audioSearchRecording
+from music21.audioSearch import transcriber as audioSearchTranscriber
 
 from music21 import bar
 from music21 import base
@@ -40,40 +47,53 @@ from music21 import beam
 
 from music21.braille import basic as brailleBasic
 from music21.braille import examples as brailleExamples
-from music21.braille import translate as brailleTranslate
 from music21.braille import segment as brailleSegment
+from music21.braille import text as brailleText
+from music21.braille import translate as brailleTranslate
 
-from music21 import clef
+#chant
 from music21 import chord
+#chordTables
+#classCache
+from music21 import clef
 from music21 import common
 
 from music21 import composition
 from music21.composition import phasing as compositionPhasing
 
+from music21 import contour
 from music21 import converter
 
 from music21.corpus import base as corpus
+from music21.corpus import chorales as corpusChorales
 
+from music21.counterpoint import species as counterpointSpecies
+
+# demos
+# defaults
+# derivation
+# doc folder
 from music21 import duration
 from music21 import dynamics
 from music21 import editorial
 from music21 import environment
 from music21 import expressions
+# ext folder
 
 from music21.features import base as features
 from music21.features import jSymbolic as featuresJSymbolic
 from music21.features import native as featuresNative
 
-from music21.figuredBass import checker as fbChecker
-from music21.figuredBass import examples as fbExamples
-from music21.figuredBass import fbPitch
-from music21.figuredBass import notation as fbNotation
-from music21.figuredBass import possibility as fbPossibility
-from music21.figuredBass import realizer as fbRealizer
-from music21.figuredBass import realizerScale as fbRealizerScale
-from music21.figuredBass import resolution as fbResolution
-from music21.figuredBass import rules as fbRules
-from music21.figuredBass import segment as fbSegment
+from music21.figuredBass import checker as figuredBassChecker
+from music21.figuredBass import examples as figuredBassExamples
+from music21.figuredBass import fbPitch as figuredBassFbPitch
+from music21.figuredBass import notation as figuredBassNotation
+from music21.figuredBass import possibility as figuredBassPossibility
+from music21.figuredBass import realizer as figuredBassRealizer
+from music21.figuredBass import realizerScale as figuredBassRealizerScale
+from music21.figuredBass import resolution as figuredBassResolution
+from music21.figuredBass import rules as figuredBassRules
+from music21.figuredBass import segment as figuredBassSegment
 
 from music21 import graph
 
@@ -86,38 +106,43 @@ from music21 import instrument
 from music21 import interval
 from music21 import intervalNetwork
 
-
 from music21 import key
+
+from music21 import layout
+from music21.lily import lilyObjects as lilyLilyObjects
+from music21.lily import translate as lilyTranslate
 
 from music21 import medren
 from music21 import metadata
 from music21 import meter
 
 from music21.midi import base as midi
+from music21.midi import realtime as midiRealtime
 from music21.midi import translate as midiTranslate
+
 from music21.musedata import base as musedata
 from music21.musedata import translate as musedataTranslate
 from music21.musedata import base40 as musedataBase40
+
 from music21.musicxml import base as musicxml
 from music21.musicxml import translate as musicxmlTranslate
-from music21.romanText import base as romanText
-from music21.romanText import translate as romanTextTranslate
-from music21.romanText import clercqTemperley as romanTextClercqTemperley
 
 from music21 import note
 
+from music21.noteworthy import base as noteworthy
 from music21.noteworthy import translate as noteworthyTranslate
 
-from music21.demos.theoryAnalysis import theoryAnalyzer as demosTheoryAnalysisTheoryAnalyzer
+from music21.romanText import base as romanText
+from music21.romanText import clercqTemperley as romanTextClercqTemperley
+from music21.romanText import translate as romanTextTranslate
 
 from music21 import pitch
 from music21 import roman
 from music21 import repeat
-from music21 import scale
 
 from music21.scala import base as scala
 
-
+from music21 import scale
 from music21 import search
 from music21 import serial
 from music21 import sieve
@@ -125,13 +150,23 @@ from music21 import spanner
 from music21 import stream
 
 from music21 import tempo
+
+from music21.test import test
+from music21.test import multiprocessTest as testMultiprocessTest
+
 from music21 import text
+
+from music21.theoryAnalysis import theoryAnalyzer as theoryAnalysisTheoryAnalyzer
+
+from music21 import tie
 from music21 import tinyNotation
 
 from music21.trecento import cadencebook as trecentoCadencebook
 from music21.trecento import polyphonicSnippet as trecentoPolyphonicSnippet
+from music21.trecento import tonality as trecentoTonality
 
 from music21 import variant
+
 from music21.vexflow import base as vexflow
 from music21 import voiceLeading
 from music21 import volume
@@ -173,6 +208,7 @@ NO_DOC = 'No documentation.'
 MODULES = [
     abc,
     abcTranslate,
+    
     abjTranslate,
 
     # analysis.
@@ -180,26 +216,39 @@ MODULES = [
     analysisDiscrete,
     analysisMetrical,
     analysisPatel,
+    analysisReduction,
+    analysisSearch,
     analysisWindowed,
     
     articulations,
 
+    audioSearch,
+    audioSearchRecording,
+    audioSearchTranscriber,
+    
     bar,
     base,
     beam,
     
     brailleBasic,
     brailleExamples,
-    brailleTranslate,
     brailleSegment,
+    brailleText,
+    brailleTranslate,
 
+    chord, 
     clef, 
     common,
     #composition
     compositionPhasing,
+
+    contour,
     converter,
+    
     corpus, 
-    chord, 
+    corpusChorales,
+
+    counterpointSpecies,
 
     duration, 
     dynamics,
@@ -212,20 +261,21 @@ MODULES = [
     featuresJSymbolic,
     featuresNative,
     
-    fbChecker,
-    fbExamples,
-    fbPitch,
-    fbNotation,
-    fbPossibility,
-    fbRealizer,
-    fbRealizerScale,
-    fbResolution,
-    fbRules,
-    fbSegment,
+    figuredBassChecker,
+    figuredBassExamples,
+    figuredBassFbPitch,
+    figuredBassNotation,
+    figuredBassPossibility,
+    figuredBassRealizer,
+    figuredBassRealizerScale,
+    figuredBassResolution,
+    figuredBassRules,
+    figuredBassSegment,
     
     graph,
     
     harmony,
+
     humdrum,
     humdrumSpineParser,
     
@@ -235,28 +285,40 @@ MODULES = [
     
     key,
 
+    layout,
+
+    lilyLilyObjects,
+    lilyTranslate,
+
     medren,
-    meter, 
     metadata,
+    meter, 
+    
     midi,
+    midiRealtime,
     midiTranslate,
+    
     musedata,
     musedataTranslate,
     musedataBase40,
+    
     musicxmlTranslate,
 
     note, 
+    
     noteworthyTranslate,
 
     pitch,
 
     repeat,
     roman, 
+
     romanText,
     romanTextTranslate,
     romanTextClercqTemperley,
 
     scala,
+
     scale,     
     search,
     serial,     
@@ -264,13 +326,21 @@ MODULES = [
     spanner,
     stream,     
   
-    tempo,     
+    tempo, 
+    
+    test,
+    testMultiprocessTest,
+        
     text,
+    
+    theoryAnalysisTheoryAnalyzer,
+    
+    tie,
     tinyNotation,
-    demosTheoryAnalysisTheoryAnalyzer,
     # trecento
-    #    trecentoCadencebook
+    trecentoCadencebook,
     trecentoPolyphonicSnippet,
+    trecentoTonality,
 
     variant,
     vexflow,
@@ -307,6 +377,8 @@ class PartitionedName(object):
             self.srcObj = self.srcNameEval()
         except TypeError:
             self.srcObj = None
+        
+
 
     def getElement(self, partName):
         return None
@@ -469,7 +541,8 @@ class PartitionedModule(PartitionedName):
 
         for name in self.namesOrdered:
             if name not in namesSupply:
-                raise Exception('module %s does not have name %s' % (self.srcNameStr, name))
+                environLocal.warn('module %s does not have name %s' % (self.srcNameStr, name))
+                continue
             junk = namesSupply.pop(namesSupply.index(name))
     
             i = self.names.index(name)
@@ -841,7 +914,7 @@ class PartitionedClass(PartitionedName):
         True
 
         >>> a.getNames('method', mroIndex=0)
-        ['__init__', 'convertMicrotonesToQuarterTones', 'convertQuarterTonesToMicrotones', 'getAllCommmonEnharmonics', 'getCentShiftFromMidi', 'getEnharmonic', 'getHarmonic', 'getHarmonicChord', 'getHigherEnharmonic', 'getLowerEnharmonic', 'getMidiPreCentShift', 'harmonicAndFundamentalFromPitch', 'harmonicAndFundamentalStringFromPitch', 'harmonicFromFundamental', 'harmonicString', 'inheritDisplay', 'isEnharmonic', 'isTwelveTone', 'lilyNoOctave', 'setAccidentalDisplay', 'simplifyEnharmonic', 'transpose', 'transposeAboveTarget', 'transposeBelowTarget', 'updateAccidentalDisplay']
+        ['__init__', 'convertMicrotonesToQuarterTones', 'convertQuarterTonesToMicrotones', 'getAllCommonEnharmonics', 'getCentShiftFromMidi', 'getEnharmonic', 'getHarmonic', 'getHarmonicChord', 'getHigherEnharmonic', 'getLowerEnharmonic', 'getMidiPreCentShift', 'harmonicAndFundamentalFromPitch', 'harmonicAndFundamentalStringFromPitch', 'harmonicFromFundamental', 'harmonicString', 'inheritDisplay', 'isEnharmonic', 'isTwelveTone', 'lilyNoOctave', 'setAccidentalDisplay', 'simplifyEnharmonic', 'transpose', 'transposeAboveTarget', 'transposeBelowTarget', 'updateAccidentalDisplay']
         >>> a.getNames('data', mroIndex=0)
         ['fundamental', 'implicitAccidental', 'defaultOctave']
         >>> a.getNames('data', mroIndex=1)
@@ -1263,9 +1336,12 @@ class CorpusDoc(RestructuredWriter):
                 msg.append('\n'*1)
 
                 if not workDict['virtual']: # if not virtual
-                    fileList = ['%s (*%s*): `%s`' % (d['title'], 
-                            d['format'], d['corpusPath'])
-                            for d in workDict['files']]
+                    fileList = []
+                    for d in workDict['files']:
+                        corpusPathNoSlash = d['corpusPath']
+                        corpusPathNoSlash = re.sub('\\\\', '/', corpusPathNoSlash)
+                        fileList.append('%s *(%s)*: `%s`' % (d['title'], 
+                            d['format'], corpusPathNoSlash))
                 else:
                     for d in workDict['files']:
                         dTitle = common.toUnicode(d['title'])
@@ -1273,7 +1349,7 @@ class CorpusDoc(RestructuredWriter):
                         dCorpusPath = common.toUnicode(d['corpusPath'])
                         dURL = common.toUnicode(d['url'])
 
-                        fileList = ['%s (%s): `%s`, source: %s' % (dTitle, 
+                        fileList = ['%s *(%s)*: `%s`, source: %s' % (dTitle, 
                             dFormat, dCorpusPath, dURL)]
 
                 msg += self._list(fileList)
@@ -1584,8 +1660,10 @@ class Documentation(RestructuredWriter):
         # order here is the order presented in text
         self.chaptersMain = ['what',
                              'quickStart',
-                             'overviewNotes', 
-                             'overviewStreams', 
+                             'usersGuide_02_notes',
+                             'usersGuide_03_pitches', 
+                             'overviewStreams',
+                             'usersGuide_06_chords', 
                              'overviewFormats', 
                              'overviewPostTonal', 
                              'overviewMeters', 
@@ -1619,6 +1697,35 @@ class Documentation(RestructuredWriter):
         self.modulesToBuild = MODULES
         self.updateDirs()
 
+    def copyStaticDocumentation(self):
+        '''
+        copy the static documentation from the staticDocs
+        directory to the rst directory, along the way
+        removing "# doctest: +SKIP" lines
+        
+        (and eventually everything else we don't want)
+        '''
+        staticDir = self.dirStatic
+        outputDir = self.dirRst
+        for fileName in os.listdir(staticDir):
+            sourceFile = staticDir + os.sep + fileName
+            destinationFile = outputDir + os.sep + fileName
+            if not fileName.endswith('.rst') and not fileName.endswith('.html'):
+                if not fileName.startswith('.svn'):
+                    environLocal.warn('file %s is in staticDocs dir but is not an .rst or .html file' % (fileName))
+            elif fileName.endswith('.html'):
+                shutil.copy2(sourceFile, destinationFile)
+            else: #rst
+                inputFH = open(sourceFile, "r")
+                outputFH = open(destinationFile, "w")
+                outputFH.write(".. WARNING: DO NOT EDIT THIS FILE: AUTOMATICALLY GENERATED. Edit ../staticDocs/%s\n\n" % fileName)
+                for line in inputFH:
+                    line2 = re.sub('#\s+doctest: \+SKIP', '', line)
+                    outputFH.write(line2)
+                inputFH.close()
+                outputFH.close()
+                
+
 
     def updateDirs(self):
         '''Update file paths.
@@ -1634,10 +1741,11 @@ class Documentation(RestructuredWriter):
         self.dirBuild = os.path.join(self.parentDir, 'music21', 'doc')
         environLocal.printDebug(['self.dirBuild', self.dirBuild])
 
+        self.dirStatic = os.path.join(self.dir, 'staticDocs')
         self.dirRst = os.path.join(self.dir, 'rst')
         self.dirBuildHtml = os.path.join(self.dirBuild, 'html')
         #self.dirBuildLatex = os.path.join(self.dirBuild, 'latex')
-        #self.dirBuildPdf = os.path.join(self.dirBuild, 'pdf')
+        self.dirBuildPdf = os.path.join(self.dirBuild, 'pdf')
         self.dirBuildDoctrees = os.path.join(self.dir, 'doctrees')
 
         for fp in [self.dirBuild, self.dirBuildHtml, 
@@ -1704,12 +1812,16 @@ class Documentation(RestructuredWriter):
         '''Write a .rst file for each module defined in modulesToBuild.
         Add the file reference to the list of chaptersModuleRef.
         '''
-        for module in self.modulesToBuild:
+        totalModules = len(self.modulesToBuild)
+        for i, module in enumerate(self.modulesToBuild):
             #environLocal.printDebug(['writing rst documentation:', module])
 
             a = ModuleDoc(module)
             # for debugging, can comment these three lines out and 
             # edit rst files directly
+            percentageLength = int((i*100.0)/totalModules)
+            
+            print("writing module doc as .rst... [%3s%%] %s" % (percentageLength, a.fileName))
             f = open(os.path.join(self.dirRst, a.fileName), 'w')
             f.write(a.getRestructured().encode( "utf-8" ) )
             f.close()
@@ -1739,8 +1851,13 @@ class Documentation(RestructuredWriter):
         '''
         if format not in FORMATS:
             raise Exception, 'bad format'
-        self.writeModuleReference()    
+        print ("Copying static documentation")
+        self.copyStaticDocumentation()
+        print ("Writing generated chapters (referenceCorpus)")
         self.writeGeneratedChapters()    
+        print ("Writing module references")
+        self.writeModuleReference()    
+        print ("Writing contents")
         self.writeContents()    
 
         if format == 'html':
@@ -1773,7 +1890,7 @@ class Documentation(RestructuredWriter):
                     pathLaunch = 'file://' + pathLaunch
             webbrowser.open(pathLaunch)
 
-class BuildException(Exception):
+class BuildException(exceptions21.Music21Exception):
     pass
 
 

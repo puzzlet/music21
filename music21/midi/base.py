@@ -7,8 +7,9 @@
 #               Michael Scott Cuthbert
 #               (Will Ware -- see docs)
 #
-# Copyright:    (c) 2010-2011 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2011-2012 Michael Scott Cuthbert and the music21 Project
+#               Some parts of this module are in the Public Domain
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 '''
 Objects and tools for processing MIDI data. 
@@ -27,8 +28,8 @@ try:
 except:
     from io import StringIO # python3 (also in python 2.6+)
 
-import music21
 from music21 import common
+from music21 import exceptions21
 
 from music21 import environment
 _MOD = "midi.base.py"  
@@ -41,10 +42,10 @@ environLocal = environment.Environment(_MOD)
 
 
 #-------------------------------------------------------------------------------
-class EnumerationException(Exception): 
+class EnumerationException(exceptions21.Music21Exception): 
     pass 
 
-class MidiException(Exception): 
+class MidiException(exceptions21.Music21Exception): 
     pass 
 
 
@@ -711,9 +712,15 @@ class MidiEvent(object):
                 data = chr(self._parameter1) + chr(self._parameter2) 
             elif self.type in ['PROGRAM_CHANGE']:
                 #environLocal.printDebug(['trying to add program change data: %s' % self.data])
-                data = chr(self.data) 
+                try:
+                    data = chr(self.data) 
+                except TypeError:
+                    raise MidiException("Got incorrect data for %s in .data: %s, cannot parse Program Change" % (self, self.data))
             else:  # all other messages
-                data = chr(self.data) 
+                try:
+                    data = chr(self.data) 
+                except TypeError:
+                    raise MidiException("Got incorrect data for %s in .data: %s, cannot parse Miscellaneous Message" % (self, self.data))
             return x + data 
 
         elif channelModeMessages.hasattr(self.type): 
@@ -979,8 +986,11 @@ class MidiTrack(object):
         str = ""
         for e in self.events: 
             # this writes both delta time and message events
-            ew = e.write()
-            str = str + ew
+            try:
+                ew = e.write()
+                str = str + ew
+            except MidiException as me:
+                environLocal.warn("Conversion error for %s: %s; ignored." % (e, me))
         return "MTrk" + putNumber(len(str), 4) + str 
     
     def __repr__(self): 
@@ -1475,6 +1485,7 @@ class Test(unittest.TestCase):
 _DOC_ORDER = []
 
 if __name__ == "__main__":
+    import music21
     music21.mainTest(Test)
 
 

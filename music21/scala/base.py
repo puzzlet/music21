@@ -5,19 +5,25 @@
 #
 # Authors:      Christopher Ariza
 #
-# Copyright:    (c) 2011 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2011 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 '''
-This module defines classes for representing Scala scale data, including Scala pitch representations, storage, and files. 
+This module defines classes for representing Scala scale data, 
+including Scala pitch representations, storage, and files. 
 
 The Scala format is defined at the following URL:
 http://www.huygens-fokker.org/scala/scl_format.html
-We thank Manuel Op de Coul for allowing us to include the repository (as of May 11, 2011) with music21
 
-Utility functions are also provided to search and find scales in the Scala scale archive. File names can be found with the :func:`~music21.scala.search` function.
+We thank Manuel Op de Coul for allowing us to include 
+the repository (as of May 11, 2011) with music21
 
-To create a :class:`~music21.scale.ScalaScale` instance, simply provide a root pitch and the name of the scale. Scale names are given as a the scala .scl file name. 
+Utility functions are also provided to search and find 
+scales in the Scala scale archive. File names can be found 
+with the :func:`~music21.scala.search` function.
+
+To create a :class:`~music21.scale.ScalaScale` instance, simply 
+provide a root pitch and the name of the scale. Scale names are given as a the scala .scl file name. 
 
 >>> from music21 import *
 >>> mbiraScales = scala.search('mbira')
@@ -28,8 +34,8 @@ To create a :class:`~music21.scale.ScalaScale` instance, simply provide a root p
 For most people you'll want to do something like this:
 
 >>> sc = scale.ScalaScale('a4', 'mbira_banda.scl')
->>> sc.pitches
-[A4, B4(-15c), C#5(-11c), D#5(-7c), E~5(+6c), F#5(+14c), G~5(+1c), B-5(+2c)]
+>>> [str(p) for p in sc.pitches]
+['A4', 'B4(-15c)', 'C#5(-11c)', 'D#5(-7c)', 'E~5(+6c)', 'F#5(+14c)', 'G~5(+1c)', 'B-5(+2c)']
 
 '''
 
@@ -41,9 +47,6 @@ try:
 except:
     from io import StringIO # python3 (also in python 2.6+)
 
-
-
-import music21 
 
 from music21 import common
 from music21 import interval
@@ -58,6 +61,9 @@ environLocal = environment.Environment(_MOD)
 
 
 #-------------------------------------------------------------------------------
+# global variable to cache the paths returned from getPaths()
+SCALA_PATHS = None
+
 def getPaths():    
     '''Get all scala scale paths. This is called once or the module and cached as SCALA_PATHS, which should be used instead of calls to this function. 
 
@@ -66,6 +72,12 @@ def getPaths():
     >>> len(a) >= 3800
     True
     '''
+    # declare that the copy of SCALA_PATHS here is the same
+    # as the outer scope.  See 
+    # http://stackoverflow.com/questions/423379/using-global-variables-in-a-function-other-than-the-one-that-created-them
+    global SCALA_PATHS
+    if SCALA_PATHS is not None:
+        return SCALA_PATHS
     moduleName = scl
     if not hasattr(moduleName, '__path__'):
         # when importing a package name (a directory) the moduleName        
@@ -95,11 +107,9 @@ def getPaths():
             fn = fn.replace('_', '')
             fn = fn.replace('-', '')
             paths[fp].append(fn)
-
+    SCALA_PATHS = paths
     return paths
 
-
-SCALA_PATHS = getPaths()
 
 
 #-------------------------------------------------------------------------------
@@ -293,7 +303,8 @@ class ScalaStorage(object):
 #-------------------------------------------------------------------------------
 class ScalaFile(object):
     '''
-    Interface for reading and writing scala files. On reading, returns a :class:`~music21.scala.ScalaStorage` object.
+    Interface for reading and writing scala files. 
+    On reading, returns a :class:`~music21.scala.ScalaStorage` object.
 
     >>> from music21 import *
     >>> sf = scala.ScalaFile() 
@@ -350,7 +361,9 @@ class ScalaFile(object):
 
 #-------------------------------------------------------------------------------
 def parse(target):
-    '''Get a :class:`~music21.scala.ScalaStorage` object from the bundled SCL archive or a file path. 
+    '''
+    Get a :class:`~music21.scala.ScalaStorage` object from 
+    the bundled SCL archive or a file path. 
 
     >>> from music21 import scala
     >>> ss = scala.parse('balafon6')
@@ -384,7 +397,7 @@ def parse(target):
     # remove any spaces
     target = target.replace(' ', '')
     if match is None:
-        for fp in SCALA_PATHS.keys():
+        for fp in getPaths().keys():
             dir, fn = os.path.split(fp)
             # try exact match
             if target.lower() == fn.lower():
@@ -393,17 +406,17 @@ def parse(target):
 
     # try again, from cached reduced expressions
     if match is None:        
-        for fp in SCALA_PATHS.keys():
+        for fp in getPaths().keys():
             # look at alternative names
-            for alt in SCALA_PATHS[fp]:
+            for alt in getPaths()[fp]:
                 if target.lower() == alt:
                     match = fp
                     break
     if match is None:
         # accept partial matches
-        for fp in SCALA_PATHS.keys():
+        for fp in getPaths().keys():
             # look at alternative names
-            for alt in SCALA_PATHS[fp]:
+            for alt in getPaths()[fp]:
                 if target.lower() in alt:
                     match = fp
                     break
@@ -429,7 +442,7 @@ def search(target):
     # try from stored collections
     # remove any spaces
     target = target.replace(' ', '')
-    for fp in SCALA_PATHS.keys():
+    for fp in getPaths().keys():
         dir, fn = os.path.split(fp)
         # try exact match
         if target.lower() == fn.lower():
@@ -437,9 +450,9 @@ def search(target):
                 match.append(fp)
 
     # accept partial matches
-    for fp in SCALA_PATHS.keys():
+    for fp in getPaths().keys():
         # look at alternative names
-        for alt in SCALA_PATHS[fp]:
+        for alt in getPaths()[fp]:
             if target.lower() in alt:
                 if fp not in match:
                     match.append(fp)
@@ -566,6 +579,7 @@ _DOC_ORDER = []
 
 if __name__ == "__main__":
     # sys.arg test options will be used in mainTest()
+    import music21
     music21.mainTest(Test)
 
 

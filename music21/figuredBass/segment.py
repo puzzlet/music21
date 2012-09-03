@@ -1,22 +1,23 @@
-#!/usr/bin/python
+# -*- coding: utf-8 -*-
 #-------------------------------------------------------------------------------
 # Name:         segment.py
 # Purpose:      music21 class representing a figured bass note and notation 
 #                realization.
 # Authors:      Jose Cabal-Ugaz
 #
-# Copyright:    (c) 2011 The music21 Project    
-# License:      LGPL
+# Copyright:    Copyright © 2011 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 
 import collections
 import copy
 import itertools
-import music21
 import unittest
 
+from music21 import common
 from music21 import chord
 from music21 import environment
+from music21 import exceptions21
 from music21 import key
 from music21 import note
 from music21 import pitch
@@ -28,6 +29,8 @@ from music21.figuredBass import resolution
 from music21.figuredBass import rules
 
 _MOD = 'segment.py'
+
+_defaultRealizerScale = None
 
 class Segment(object):
     _DOC_ORDER = ['allSinglePossibilities', 'singlePossibilityRules', 'allCorrectSinglePossibilities',
@@ -45,7 +48,7 @@ class Segment(object):
                  'fbRules': 'A deepcopy of the :class:`~music21.figuredBass.rules.Rules` object provided.',
                  }
 
-    def __init__(self, bassNote = note.Note('C3'), notationString = None, fbScale = realizerScale.FiguredBassScale(), fbRules = rules.Rules(), numParts = 4, maxPitch = pitch.Pitch('B5'), listOfPitches = None):
+    def __init__(self, bassNote = 'C3', notationString = None, fbScale = None, fbRules = rules.Rules(), numParts = 4, maxPitch = 'B5', listOfPitches = None):
         ''' 
         A Segment corresponds to a 1:1 realization of a bassNote and notationString of a :class:`~music21.figuredBass.realizer.FiguredBassLine`.
         It is created by passing six arguments: a :class:`~music21.figuredBass.realizerScale.FiguredBassScale`, a bassNote, a notationString,
@@ -55,6 +58,10 @@ class Segment(object):
         Methods in Python's `itertools <http://docs.python.org/library/itertools.html>`_ module are used extensively. Methods 
         which generate possibilities or possibility progressions return iterators, which are turned into lists in the examples 
         for display purposes only.
+        
+        if fbScale is None, a realizerScale.FiguredBassScale() is created
+
+        if fbRules is None, a rules.Rules() instance is created.  Each Segment gets its own deepcopy of the one given.
         
         
         Here, a Segment is created using the default values: a FiguredBassScale in C, a bassNote of C3, an empty notationString, and a default
@@ -68,13 +75,28 @@ class Segment(object):
         4
         >>> s1.pitchNamesInChord
         ['C', 'E', 'G']
-        >>> s1.allPitchesAboveBass
-        [C3, E3, G3, C4, E4, G4, C5, E5, G5]
+        >>> [str(p) for p in s1.allPitchesAboveBass]
+        ['C3', 'E3', 'G3', 'C4', 'E4', 'G4', 'C5', 'E5', 'G5']
         >>> s1.segmentChord
         <music21.chord.Chord C3 E3 G3 C4 E4 G4 C5 E5 G5>
         '''
+        if common.isStr(bassNote):
+            bassNote = note.Note(bassNote)
+        if common.isStr(maxPitch):
+            maxPitch = pitch.Pitch(maxPitch)
+        
+        if fbScale is None:
+            global _defaultRealizerScale
+            if _defaultRealizerScale is None:
+                _defaultRealizerScale = realizerScale.FiguredBassScale()
+            fbScale = _defaultRealizerScale # save making it
+        
+        if fbRules is None:
+            self.fbRules = rules.Rules()
+        else:
+            self.fbRules = copy.deepcopy(fbRules)
+        
         self.bassNote = bassNote
-        self.fbRules = copy.deepcopy(fbRules)
         self.numParts = numParts
         self._maxPitch = maxPitch
         if notationString == None and listOfPitches != None: #must be a chord symbol or roman numeral....
@@ -90,12 +112,12 @@ class Segment(object):
     #-------------------------------------------------------------------------------
     # EXTERNAL METHODS
     
-    def singlePossibilityRules(self, fbRules = rules.Rules()):
+    def singlePossibilityRules(self, fbRules = None):
         '''
         A framework for storing single possibility rules and methods to be applied
         in :meth:`~music21.figuredBass.segment.Segment.allCorrectSinglePossibilities`.
         Takes in a :class:`~music21.figuredBass.rules.Rules` object, fbRules.
-        
+        If None then a new rules object is created.
         
         Items are added within this method in the following form:
         
@@ -129,6 +151,9 @@ class Segment(object):
         True       upperPartsWithinLimit         True                          12
         True       voiceCrossing                 False                         None
         '''        
+        if fbRules is None:
+            fbRules = rules.Rules()
+
         singlePossibRules = \
         [(fbRules.forbidIncompletePossibilities, possibility.isIncomplete, False, [self.pitchNamesInChord]),
          (True, possibility.upperPartsWithinLimit, True, [fbRules.upperPartsMaxSemitoneSeparation]),
@@ -136,11 +161,12 @@ class Segment(object):
         
         return singlePossibRules
     
-    def consecutivePossibilityRules(self, fbRules = rules.Rules()):
+    def consecutivePossibilityRules(self, fbRules = None):
         '''
         A framework for storing consecutive possibility rules and methods to be applied
         in :meth:`~music21.figuredBass.segment.Segment.allCorrectConsecutivePossibilities`.
-        Takes in a :class:`~music21.figuredBass.rules.Rules` object, fbRules.
+        Takes in a :class:`~music21.figuredBass.rules.Rules` object, fbRules; if None
+        then a new rules.Rules() object is created.
         
         
         Items are added within this method in the following form:
@@ -165,7 +191,7 @@ class Segment(object):
         True       parallelOctaves               False                         None
         True       hiddenFifth                   False                         None
         True       hiddenOctave                  False                         None
-        False      couldBeItalianA6Resolution    True                          [C3, C3, E3, G3], True
+        False      couldBeItalianA6Resolution    True                          [<music21.pitch.Pitch C3>, <music21.pitch.Pitch C3>, <music21.pitch.Pitch E3>, <music21.pitch.Pitch G3>], True
     
         
         Now, a modified fbRules is provided, allowing hidden octaves and
@@ -188,8 +214,11 @@ class Segment(object):
         True       parallelOctaves               False                         None
         True       hiddenFifth                   False                         None
         False      hiddenOctave                  False                         None
-        False      couldBeItalianA6Resolution    True                          [C3, C3, E3, G3], True
+        False      couldBeItalianA6Resolution    True                          [<music21.pitch.Pitch C3>, <music21.pitch.Pitch C3>, <music21.pitch.Pitch E3>, <music21.pitch.Pitch G3>], True
         '''
+        if fbRules is None:
+            fbRules = rules.Rules()
+
         isItalianAugmentedSixth = self.segmentChord.isItalianAugmentedSixth()
             
         consecPossibRules = \
@@ -205,7 +234,7 @@ class Segment(object):
         
         return consecPossibRules
     
-    def specialResolutionRules(self, fbRules = rules.Rules()):
+    def specialResolutionRules(self, fbRules = None):
         '''
         A framework for storing methods which perform special resolutions
         on Segments. Unlike the methods in 
@@ -215,6 +244,7 @@ class Segment(object):
         to resolve the individual possibilities accordingly depending on what
         the resolution Segment is. 
         
+        If fbRules is None, then a new rules.Rules() object is created.
         
         Items are added within this method in the following form:
    
@@ -271,6 +301,9 @@ class Segment(object):
         False      resolveDiminishedSeventhSegment  False
         True       resolveAugmentedSixthSegment     None
         '''
+        if fbRules is None:
+            fbRules = rules.Rules()
+
         isDominantSeventh = self.segmentChord.isDominantSeventh()
         isDiminishedSeventh = self.segmentChord.isDiminishedSeventh()
         isAugmentedSixth = self.segmentChord.isAugmentedSixth()
@@ -298,11 +331,15 @@ class Segment(object):
         >>> len(allDomPossibList)
         8
         >>> allDomPossibList[2]
-        (D4, B3, F3, G2)
+        (<music21.pitch.Pitch D4>, <music21.pitch.Pitch B3>, <music21.pitch.Pitch F3>, <music21.pitch.Pitch G2>)
         >>> allDomPossibList[5]
-        (D5, B4, F4, G2)
-        >>> allDomPossibList[7] # Soprano pitch of resolution (C6) exceeds default maxPitch of B5, filtered out.
-        (B5, F5, D5, G2)
+        (<music21.pitch.Pitch D5>, <music21.pitch.Pitch B4>, <music21.pitch.Pitch F4>, <music21.pitch.Pitch G2>)
+        
+        Here, the Soprano pitch of resolution (C6) exceeds default maxPitch of B5, so
+        it's filtered out.
+        
+        >>> [p.nameWithOctave for p in allDomPossibList[7]] 
+        ['B5', 'F5', 'D5', 'G2']
         
         
         >>> segmentB = segment.Segment(bassNote = note.Note('C3'), notationString = "")
@@ -311,9 +348,9 @@ class Segment(object):
         >>> len(domResPairsList)
         7
         >>> domResPairsList[2]
-        ((D4, B3, F3, G2), (C4, C4, E3, C3))
+        ((<music21.pitch.Pitch D4>, <...B3>, <...F3>, <...G2>), (<...C4>, <...C4>, <...E3>, <...C3>))
         >>> domResPairsList[5]
-        ((D5, B4, F4, G2), (C5, C5, E4, C3))
+        ((<...D5>, <...B4>, <...F4>, <...G2>), (<...C5>, <...C5>, <...E4>, <...C3>))
         '''
         domChord = self.segmentChord
         if not domChord.isDominantSeventh():
@@ -365,10 +402,10 @@ class Segment(object):
         >>> allDimPossibList = list(allDimPossib)
         >>> len(allDimPossibList)
         7
-        >>> allDimPossibList[4]
-        (D5, A-4, F4, B2)
-        >>> allDimPossibList[6]
-        (A-5, F5, D5, B2)
+        >>> [p.nameWithOctave for p in allDimPossibList[4]]
+        ['D5', 'A-4', 'F4', 'B2']
+        >>> [p.nameWithOctave for p in allDimPossibList[6]]
+        ['A-5', 'F5', 'D5', 'B2']
         
         
         >>> segmentB = segment.Segment(bassNote = note.Note('C3'), notationString = "")
@@ -377,9 +414,9 @@ class Segment(object):
         >>> len(dimResPairsList)
         7
         >>> dimResPairsList[4]
-        ((D5, A-4, F4, B2), (E5, G4, E4, C3))
+        ((<...D5>, <...A-4>, <...F4>, <...B2>), (<...E5>, <...G4>, <...E4>, <...C3>))
         >>> dimResPairsList[6]
-        ((A-5, F5, D5, B2), (G5, E5, E5, C3))
+        ((<...A-5>, <...F5>, <...D5>, <...B2>), (<...G5>, <...E5>, <...E5>, <...C3>))
         '''
         dimChord = self.segmentChord
         if not dimChord.isDiminishedSeventh():
@@ -429,10 +466,11 @@ class Segment(object):
         >>> allAugSixthPossibList = list(allAugSixthPossib)
         >>> len(allAugSixthPossibList)
         7
+        
         >>> allAugSixthPossibList[1]
-        (C4, F#3, E-3, A-2)
+        (<music21.pitch.Pitch C4>, <music21.pitch.Pitch F#3>, <...E-3>, <...A-2>)
         >>> allAugSixthPossibList[4]
-        (C5, F#4, E-4, A-2)
+        (<music21.pitch.Pitch C5>, <music21.pitch.Pitch F#4>, <...E-4>, <...A-2>)
         
         
         >>> segmentB = segment.Segment(bassNote = note.Note("G2"), notationString = "")
@@ -441,9 +479,9 @@ class Segment(object):
         >>> len(allAugResPossibPairsList)
         7
         >>> allAugResPossibPairsList[1]
-        ((C4, F#3, E-3, A-2), (B3, G3, D3, G2))
+        ((<...C4>, <...F#3>, <...E-3>, <...A-2>), (<...B3>, <...G3>, <...D3>, <...G2>))
         >>> allAugResPossibPairsList[4]
-        ((C5, F#4, E-4, A-2), (B4, G4, D4, G2))
+        ((<...C5>, <...F#4>, <...E-4>, <...A-2>), (<...B4>, <...G4>, <...D4>, <...G2>))
         '''
         augSixthChord = self.segmentChord
         if not augSixthChord.isAugmentedSixth():
@@ -508,12 +546,12 @@ class Segment(object):
         729
         >>> len(allPossibList)
         729
-        >>> allPossibList[81]
-        (E3, C3, C3, C3)
-        >>> allPossibList[275]
-        (C4, C4, G4, C3)
-        >>> allPossibList[426]
-        (G4, G3, C4, C3)
+        
+        >>> for i in (81, 275, 426):
+        ...    [str(p) for p in allPossibList[i]]
+        ['E3', 'C3', 'C3', 'C3']
+        ['C4', 'C4', 'G4', 'C3']
+        ['G4', 'G3', 'C4', 'C3']
         '''
         iterables = [self.allPitchesAboveBass] * (self.numParts - 1)
         iterables.append([fbPitch.HashablePitch(self.bassNote.pitch.nameWithOctave)])
@@ -543,12 +581,12 @@ class Segment(object):
         >>> allCorrectPossibList = list(allCorrectPossib)
         >>> len(allCorrectPossibList)
         21
-        >>> allCorrectPossibList[5]
-        (E4, G3, G3, C3)
-        >>> allCorrectPossibList[12]
-        (C5, G4, E4, C3)
-        >>> allCorrectPossibList[20]
-        (G5, G5, E5, C3)
+        
+        >>> for i in (5, 12, 20):
+        ...   [str(p) for p in allCorrectPossibList[i]]
+        ['E4', 'G3', 'G3', 'C3']
+        ['C5', 'G4', 'E4', 'C3']
+        ['G5', 'G5', 'E5', 'C3']
         '''
         self._singlePossibilityRuleChecking = _compileRules(self.singlePossibilityRules(self.fbRules))
         allA = self.allSinglePossibilities()
@@ -594,7 +632,7 @@ class Segment(object):
         >>> len(consecPairsList1)
         31
         >>> consecPairsList1[29]
-        ((G5, G5, E5, C3), (G5, F5, B4, D3))
+        ((<...G5>, <...G5>, <...E5>, <...C3>), (<...G5>, <...F5>, <...B4>, <...D3>))
 
 
         Here, a special resolution is being executed, because segmentA below is a
@@ -608,7 +646,7 @@ class Segment(object):
         >>> len(consecPairsList2)
         6
         >>> consecPairsList2[5]
-        ((G5, F5, B4, D3), (G5, E5, C5, C3))
+        ((<...G5>, <...F5>, <...B4>, <...D3>), (<...G5>, <...E5>, <...C5>, <...C3>))
         '''
         if not (self.numParts == segmentB.numParts):
             raise SegmentException("Two segments with unequal numParts cannot be compared.")
@@ -708,20 +746,31 @@ class OverlayedSegment(Segment):
     
 # HELPER METHODS
 # --------------
-def getPitches(pitchNames = ['C','E','G'], bassPitch = pitch.Pitch('C3'), maxPitch = pitch.Pitch('C8')):
+def getPitches(pitchNames = ['C','E','G'], bassPitch = 'C3', maxPitch = 'C8'):
     '''
     Given a list of pitchNames, a bassPitch, and a maxPitch, returns a sorted list of
     pitches between the two limits (inclusive) which correspond to items in pitchNames.
     
     >>> from music21.figuredBass import segment
     >>> from music21 import pitch
-    >>> segment.getPitches()
-    [C3, E3, G3, C4, E4, G4, C5, E5, G5, C6, E6, G6, C7, E7, G7, C8]
-    >>> segment.getPitches(['G', 'B', 'D', 'F'], bassPitch = pitch.Pitch('B2'))
-    [B2, D3, F3, G3, B3, D4, F4, G4, B4, D5, F5, G5, B5, D6, F6, G6, B6, D7, F7, G7, B7]
-    >>> segment.getPitches(['F##','A#','C#'], bassPitch = pitch.Pitch('A#3'))
-    [A#3, C#4, F##4, A#4, C#5, F##5, A#5, C#6, F##6, A#6, C#7, F##7, A#7]
+    
+    >>> pitches = segment.getPitches()
+    >>> print ', '.join([p.nameWithOctave for p in pitches])
+    C3, E3, G3, C4, E4, G4, C5, E5, G5, C6, E6, G6, C7, E7, G7, C8
+    
+    >>> pitches = segment.getPitches(['G', 'B', 'D', 'F'], bassPitch = pitch.Pitch('B2'))
+    >>> print ', '.join([p.nameWithOctave for p in pitches])
+    B2, D3, F3, G3, B3, D4, F4, G4, B4, D5, F5, G5, B5, D6, F6, G6, B6, D7, F7, G7, B7
+    
+    >>> pitches = segment.getPitches(['F##','A#','C#'], bassPitch = pitch.Pitch('A#3'))
+    >>> print ', '.join([p.nameWithOctave for p in pitches])
+    A#3, C#4, F##4, A#4, C#5, F##5, A#5, C#6, F##6, A#6, C#7, F##7, A#7
     '''
+    if isinstance(bassPitch, basestring):
+        bassPitch = pitch.Pitch(bassPitch)
+    if isinstance(maxPitch, basestring):
+        maxPitch = pitch.Pitch(maxPitch)
+    
     iter1 = itertools.product(pitchNames, range(maxPitch.octave + 1))
     iter2 = itertools.imap(lambda x: fbPitch.HashablePitch(x[0] + str(x[1])), iter1)
     iter3 = itertools.ifilterfalse(lambda samplePitch: bassPitch > samplePitch, iter2)
@@ -804,7 +853,7 @@ def printRules(rulesList, maxLength = 4):
         print ruleToPrint   
 
 
-class SegmentException(music21.Music21Exception):
+class SegmentException(exceptions21.Music21Exception):
     pass
     
 #-------------------------------------------------------------------------------
@@ -814,6 +863,7 @@ class Test(unittest.TestCase):
         pass
 
 if __name__ == "__main__":
+    import music21
     music21.mainTest(Test)
 
 #------------------------------------------------------------------------------

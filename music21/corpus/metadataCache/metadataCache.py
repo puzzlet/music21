@@ -1,20 +1,23 @@
-#!/usr/bin/python
+# -*- coding: utf-8 -*-
 #-------------------------------------------------------------------------------
-# Name:         corpus/metadataCache/cache.py
+# Name:         corpus.metadata.metadataCache.py
 # Purpose:      Build the metadata cache
 #
 # Authors:      Christopher Ariza
+#               Michael Scott Cuthbert
 #
-# Copyright:    (c) 2010-2012 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2010-2012 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 
 '''
 Run this module to process all files in the corpus. 
+Either the 'core', 'local', or 'virtual' corpus.
 '''
 
 from music21 import common
 
+from music21 import exceptions21
 
 from music21 import environment
 _MOD = "metadataCache.py"
@@ -22,13 +25,13 @@ environLocal = environment.Environment(_MOD)
 
 
 #-------------------------------------------------------------------------------
-class MetadataCacheException(Exception):
+class MetadataCacheException(exceptions21.Music21Exception):
     pass
 
 
 
 
-def cacheMetadata(domainList=['core', 'virtual']): 
+def cacheMetadata(domainList=['local','core', 'virtual']): 
     '''The core cache is all locally-stored corpus files. 
     '''
     from music21 import corpus, metadata
@@ -60,19 +63,19 @@ def cacheMetadata(domainList=['core', 'virtual']):
             
         paths = getPaths()
     
-        environLocal.printDebug([
+        environLocal.warn([
             'metadata cache: starting processing of paths:', len(paths)])
     
         #mdb.addFromPaths(paths[-3:])
         # returns any paths that failed to load
-        fpError += mdb.addFromPaths(paths) 
-        #print mdb._storage
+        fpError += mdb.addFromPaths(paths, printDebugAfter = 50) 
+        #print mdb.storage
         mdb.write() # will use a default file path based on domain
 
-        environLocal.printDebug(['cache: writing time:', t, 'md items:', len(mdb._storage)])
+        environLocal.warn(['cache: writing time:', t, 'md items:', len(mdb.storage)])
         del mdb
 
-    environLocal.printDebug(['cache: final writing time:', t])
+    environLocal.warn(['cache: final writing time:', t])
     
     for fp in fpError:
         environLocal.warn('path failed to parse: %s' % fp)        

@@ -1,7 +1,7 @@
 {
   "__attr__": {
-    "_name": "virtual", 
-    "_storage": {
+    "name": "virtual", 
+    "storage": {
       "http:__kern_ccarh_org_cgi-bin_ksdata?l=cc_bach_cello&file=bwv1007-01_krn&f=xml": {
         "__attr__": {
           "_contributors": [], 
@@ -14,7 +14,9 @@
               "__class__": "<class 'music21.metadata.Text'>"
             }
           }, 
-          "keySignatureFirst": "sharps 1, mode None", 
+          "keySignatureFirst": "<music21.key.KeySignature of 1 sharp>", 
+          "noteCount": 656, 
+          "quarterLength": 168.0, 
           "timeSignatureFirst": "4/4"
         }, 
         "__class__": "<class 'music21.metadata.RichMetadata'>"
@@ -31,7 +33,9 @@
               "__class__": "<class 'music21.metadata.Text'>"
             }
           }, 
-          "keySignatureFirst": "sharps 2, mode None", 
+          "keySignatureFirst": "<music21.key.KeySignature of 2 sharps>", 
+          "noteCount": 2331, 
+          "quarterLength": 228.0, 
           "timeSignatureFirst": "4/4"
         }, 
         "__class__": "<class 'music21.metadata.RichMetadata'>"
@@ -48,7 +52,9 @@
               "__class__": "<class 'music21.metadata.Text'>"
             }
           }, 
-          "keySignatureFirst": "sharps 3, mode None", 
+          "keySignatureFirst": "<music21.key.KeySignature of 3 sharps>", 
+          "noteCount": 148, 
+          "quarterLength": 34.0, 
           "timeSignatureFirst": "2/4"
         }, 
         "__class__": "<class 'music21.metadata.RichMetadata'>"
@@ -65,7 +71,9 @@
               "__class__": "<class 'music21.metadata.Text'>"
             }
           }, 
-          "keySignatureFirst": "sharps 0, mode None", 
+          "keySignatureFirst": "<music21.key.KeySignature of no sharps or flats>", 
+          "noteCount": 484, 
+          "quarterLength": 88.0, 
           "timeSignatureFirst": "4/4"
         }, 
         "__class__": "<class 'music21.metadata.RichMetadata'>"
@@ -82,7 +90,9 @@
               "__class__": "<class 'music21.metadata.Text'>"
             }
           }, 
-          "keySignatureFirst": "sharps -3, mode None", 
+          "keySignatureFirst": "<music21.key.KeySignature of 3 flats>", 
+          "noteCount": 670, 
+          "quarterLength": 108.0, 
           "timeSignatureFirst": "4/4"
         }, 
         "__class__": "<class 'music21.metadata.RichMetadata'>"
@@ -99,7 +109,9 @@
               "__class__": "<class 'music21.metadata.Text'>"
             }
           }, 
-          "keySignatureFirst": "sharps 0, mode None", 
+          "keySignatureFirst": "<music21.key.KeySignature of no sharps or flats>", 
+          "noteCount": 173, 
+          "quarterLength": 32.0, 
           "timeSignatureFirst": "2/4"
         }, 
         "__class__": "<class 'music21.metadata.RichMetadata'>"
@@ -116,7 +128,9 @@
               "__class__": "<class 'music21.metadata.Text'>"
             }
           }, 
-          "keySignatureFirst": "sharps 0, mode None", 
+          "keySignatureFirst": "<music21.key.KeySignature of no sharps or flats>", 
+          "noteCount": 249, 
+          "quarterLength": 32.0, 
           "timeSignatureFirst": "2/4"
         }, 
         "__class__": "<class 'music21.metadata.RichMetadata'>"
@@ -133,7 +147,9 @@
               "__class__": "<class 'music21.metadata.Text'>"
             }
           }, 
-          "keySignatureFirst": "sharps 0, mode None", 
+          "keySignatureFirst": "<music21.key.KeySignature of no sharps or flats>", 
+          "noteCount": 194, 
+          "quarterLength": 34.0, 
           "timeSignatureFirst": "2/4"
         }, 
         "__class__": "<class 'music21.metadata.RichMetadata'>"
@@ -210,7 +226,9 @@
               "__class__": "<class 'music21.metadata.Text'>"
             }
           }, 
-          "keySignatureFirst": "sharps 0, mode major", 
+          "keySignatureFirst": "<music21.key.KeySignature of no sharps or flats, mode major>", 
+          "noteCount": 67, 
+          "quarterLength": 72.0, 
           "timeSignatureFirst": "4/4"
         }, 
         "__class__": "<class 'music21.metadata.RichMetadata'>"
@@ -219,8 +237,8 @@
   }, 
   "__class__": "<class 'music21.metadata.MetadataBundle'>", 
   "__version__": [
-    0, 
-    6, 
-    2
+    1, 
+    3, 
+    0
   ]
 }

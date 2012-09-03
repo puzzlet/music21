@@ -5,18 +5,13 @@
 #
 # Authors:      Christopher Ariza
 #
-# Copyright:    (c) 2011 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2011 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 
 '''Objects for processing roman numeral analysis text files, as defined and demonstrated by Dmitri Tymoczko.
 '''
 import unittest
-import music21
-
-
-
-
 
 
 
@@ -640,6 +635,37 @@ m157 I b2 V7
 m158 I
 """
 
+mozartK283_2_opening = '''Composer: Mozart
+Piece: K283
+Analyst: Emilio Renard i Vallet
+Proofreader: Dmitri Tymoczko and Thomas Robinson
+Note: please email corrections to dmitri@princeton.edu
+
+Form: exposition
+m1 C: I b3 V4/3 b4 V6/5 b4.5 V7
+m2 I b2 IV6 b2.5 IV b3 I6/4 b4 V b4.5 viio6/4
+m3 I6 b3 V4/3 b4 V6/5 b4.5 V7
+m4 I b1.5 ii6 b2 I6/4 b2.5 V7 b3 I
+Form: transition
+m5 I b2 V6 b3 I b4 I6 b4.5 I
+m6 V6 G: I6 b1.5 viio6 b2 I6 b2.5 I b3 V6/4 b3.5 V6/5 b4 I
+m7 ii6 b3 viio6
+m8 I6 b2.5 ii6 b3 I6/4 b3.5 vii/o7/V b4 V
+Form: second theme
+m9 I b3 V4/3
+m10 = m9
+m11 I6 b2.5 V6/5/IV b3 IV
+m12 I6 b1.5 ii6 b2 I6/4 b2.5 viio6/4 b3 I6 b4.5 V6/5/IV
+m13 IV b3 I6 b3.5 IV b4 I6/4 b4.5 V
+m14a I b1.5 V7 b2 I b2.5 V7 b3 I C: V b4 V9 
+m14b I b1.5 V7 b2 I b2.5 V7 b3 I b4 d: iio2
+Note: m14 melodic texture, inferred harmony  
+Form: development
+m15 viio7
+m16 b3 i
+m17 V4/3 b2 V6/5 b2.5 V7 b3 i b4 V6/5 b4.5 C: ii2
+'''
+
 
 
 
@@ -666,6 +692,7 @@ _DOC_ORDER = []
 
 if __name__ == "__main__":
     # sys.arg test options will be used in mainTest()
+    import music21
     music21.mainTest(Test)
 
 #------------------------------------------------------------------------------

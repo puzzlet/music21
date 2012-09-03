@@ -6,8 +6,8 @@
 # Authors:      Jared Sadoian
 #               Christopher Ariza
 #
-# Copyright:    (c) 2010-2011 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2010-2011 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 
 '''Modular analysis procedures for use alone or 
@@ -24,7 +24,8 @@ The :class:`music21.analysis.discrete.KrumhanslSchmuckler`
 
 import unittest
 import sys
-import music21
+
+from music21 import exceptions21
 
 from music21 import meter
 from music21 import pitch
@@ -41,7 +42,7 @@ environLocal = environment.Environment(_MOD)
 
 
 #------------------------------------------------------------------------------
-class DiscreteAnalysisException(Exception):
+class DiscreteAnalysisException(exceptions21.Music21Exception):
     pass
 
 class DiscreteAnalysis(object):
@@ -500,12 +501,12 @@ class KeyWeightKeyAnalysis(DiscreteAnalysis):
     def _bestKeyEnharmonic(self, pitchObj, mode, sStream=None):
         '''
         >>> from music21 import *
-        >>> p = analysis.discrete.KrumhanslSchmuckler()
+        >>> ks = analysis.discrete.KrumhanslSchmuckler()
         >>> s = converter.parse('b-4 e- f g-', '4/4')
-        >>> p._bestKeyEnharmonic(pitch.Pitch('e#'), 'minor', s)
-        F
-        >>> p._bestKeyEnharmonic(pitch.Pitch('f-'), 'major', s)
-        E
+        >>> ks._bestKeyEnharmonic(pitch.Pitch('e#'), 'minor', s)
+        <music21.pitch.Pitch F>
+        >>> ks._bestKeyEnharmonic(pitch.Pitch('f-'), 'major', s)
+        <music21.pitch.Pitch E>
 
         '''
         if pitchObj == None:
@@ -1459,6 +1460,7 @@ _DOC_ORDER = [analyzeStream, DiscreteAnalysis, Ambitus, MelodicIntervalDiversity
 #------------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    import music21
     music21.mainTest(Test)
 
 

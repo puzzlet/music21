@@ -5,8 +5,9 @@
 #
 # Authors:      Christopher Ariza
 #               Michael Scott Cuthbert
+#               Evan Lynch
 #
-# Copyright:    (c) 2009-2012 The music21 Project
+# Copyright:    Copyright © 2009-2012 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 
@@ -24,9 +25,10 @@ to graphing data and structures in
 import unittest, doctest
 import random, math, sys, os
 
-import music21
 from music21 import note
 from music21 import dynamics
+from music21 import exceptions21
+
 from music21 import duration
 from music21 import pitch
 from music21 import common
@@ -83,10 +85,10 @@ if len(_missingImport) > 0:
 
 
 #-------------------------------------------------------------------------------
-class GraphException(Exception):
+class GraphException(exceptions21.Music21Exception):
     pass
 
-class PlotStreamException(Exception):
+class PlotStreamException(exceptions21.Music21Exception):
     pass
 
 # temporary
@@ -112,7 +114,7 @@ FORMATS = ['horizontalbar', 'histogram', 'scatter', 'scatterweighted',
 def userFormatsToFormat(value):
     '''Replace possible user format strings with defined format names as used herein. Returns string unaltered if no match.
     '''
-    #environLocal.pd(['calling user userFormatsToFormat:', value])
+    #environLocal.printDebug(['calling user userFormatsToFormat:', value])
     value = value.lower()
     value = value.replace(' ', '')
     if value in ['bar', 'horizontal', 'horizontalbar', 'pianoroll', 'piano']:
@@ -229,7 +231,7 @@ class Graph(object):
     colorBackgroundData, colorBackgroundFigure, colorGrid, title, 
     doneAction (see below), 
     figureSize, colors, tickFontSize, titleFontSize, labelFontSize, 
-    fontFamily.
+    fontFamily, marker, markerSize.
 
     Graph objects do not manipulate Streams or other music21 data; they only 
     manipulate raw data formatted for each Graph subclass, hence it is
@@ -253,10 +255,13 @@ class Graph(object):
         except NameError:
             raise GraphException('could not find matplotlib, graphing is not allowed')
         self.data = None
-        # define a component dictionary for each axist
+        # define a component dictionary for each axis
         self.axis = {}
         self.axisKeys = ['x', 'y']
         self.grid = True
+        self._axisRangesAlreadySet = {}
+        for axisKey in self.axisKeys:
+            self._axisRangesAlreadySet[axisKey] = False
 
         if 'alpha' in keywords:
             self.alpha = keywords['alpha']
@@ -284,7 +289,7 @@ class Graph(object):
             self.colorGrid = keywords['colorGrid']
         else:
             self.colorGrid = '#666666'
-
+        
         if 'title' in keywords:
             self.setTitle(keywords['title'])
         else:
@@ -300,6 +305,16 @@ class Graph(object):
         else: # default is to write a file
             self.setFigureSize([6,6])
 
+        if 'marker' in keywords:
+            self.marker = keywords['marker']
+        else:
+            self.marker = 'o'
+        
+        if 'markerSize' in keywords:
+            self.markerSize = keywords['marker']
+        else:
+            self.markerSize = 6
+        
         # define a list of one or more colors
         # these will be applied cyclically to data prsented
         if 'colors' in keywords:
@@ -379,7 +394,14 @@ class Graph(object):
             raise GraphException('not such done action: %s' % action)
 
     def setTicks(self, axisKey, pairs):
-        '''pairs are positions and labels
+        '''
+        Set the tick-labels for a given graph or plot's axisKey
+        (generally 'x', and 'y') with a set of pairs
+        
+        Pairs are tuples of positions and labels.
+
+        N.B. -- both 'x' and 'y' ticks have to be set in
+        order to get matplotlib to display either...
         '''
         if pairs != None:
             positions = []
@@ -391,21 +413,54 @@ class Graph(object):
             #environLocal.printDebug(['got labels', labels])
             self.axis[axisKey]['ticks'] = positions, labels
 
-    def setAxisRange(self, axisKey, valueRange, pad=.1):
+    def setIntegerTicksFromData(self, unsortedData, axisKey = 'y', dataSteps = 8):
+        '''
+        Set the ticks for an axis (usually 'y') given the data
+        '''
+        maxData = max(unsortedData)
+        yTicks = []
+        yTickStep = int(round(maxData / (dataSteps+0.0)))
+        if yTickStep <= 1:
+            yTickStep = 2
+        for y in range(0, maxData + 1, yTickStep):
+            yTicks.append([y, '%s' % y])
+        yTicks.sort()
+        positions = []
+        labels = []
+
+        for value, label in yTicks:
+            positions.append(value)
+            labels.append(label)
+
+        self.axis[axisKey]['ticks'] = positions, labels
+        
+
+    def setAxisRange(self, axisKey, valueRange, paddingFraction =.1):
+        '''
+        Set the range for the axis for a given axis key
+        (generally, 'x', or 'y')
+        
+        ValueRange is a two-element tuple of the lowest
+        number and the highest.
+        
+        By default there is a padding of 10% of the range
+        in either direction.  Set paddingFraction = 0 to
+        eliminate this shift
+        '''
+        
         if axisKey not in self.axisKeys:
             raise GraphException('No such axis exists: %s' % axisKey)
         # find a shift
-        if pad != False:
+        if paddingFraction != 0:
             range = valueRange[1] - valueRange[0]
-            if pad is not False: # use a default
-                shift = range * pad # add 10 percent of range
-            else:
-                shift = pad # alternatively, provide a value directly
+            shift = range * paddingFraction # add 10 percent of range
         else:
             shift = 0
         # set range with shift
         self.axis[axisKey]['range'] = (valueRange[0]-shift,
                                        valueRange[1]+shift)
+        
+        self._axisRangesAlreadySet[axisKey] = True
 
     def setAxisLabel(self, axisKey, label):
         if axisKey not in self.axisKeys:
@@ -499,7 +554,7 @@ class Graph(object):
                         #environLocal.printDebug(['setting labels', labels])
                         ax.set_xticklabels(labels, fontsize=self.tickFontSize,
                             family=self.fontFamily, 
-                         horizontalalignment=self.xTickLabelHorizontalAlignment, verticalalignment=self.xTickLabelVerticalAlignment, 
+                            horizontalalignment=self.xTickLabelHorizontalAlignment, verticalalignment=self.xTickLabelVerticalAlignment, 
                             rotation=self.xTickLabelRotation,
                             y=-.01)
 
@@ -515,10 +570,12 @@ class Graph(object):
                             family=self.fontFamily,
                             horizontalalignment='right', verticalalignment='center')
             else: # apply some default formatting to default ticks
-                ax.set_xticklabels(ax.get_xticks(),
-                    fontsize=self.tickFontSize, family=self.fontFamily) 
-                ax.set_yticklabels(ax.get_yticks(),
-                    fontsize=self.tickFontSize, family=self.fontFamily) 
+                if axis == 'x':
+                    ax.set_xticklabels(ax.get_xticks(),
+                        fontsize=self.tickFontSize, family=self.fontFamily) 
+                elif axis == 'y':
+                    ax.set_yticklabels(ax.get_yticks(),
+                        fontsize=self.tickFontSize, family=self.fontFamily) 
 
 
         if self.title:
@@ -953,7 +1010,7 @@ class GraphHorizontalBar(Graph):
         #environLocal.printDebug(['got xMin, xMax for points', xMin, xMax, ])
 
         self.setAxisRange('y', (0, len(keys) * self._barSpace))
-        self.setAxisRange('x', (xMin, xMax), pad=True)
+        self.setAxisRange('x', (xMin, xMax))
         self.setTicks('y', yTicks)  
 
         # first, see if ticks have been set externally
@@ -1085,8 +1142,8 @@ class GraphHorizontalBarWeighted(Graph):
 
         # NOTE: these pad values determine extra space inside the graph that
         # is not filled with data, a sort of inner margin
-        self.setAxisRange('y', (0, len(keys) * self._barSpace), pad=.05)
-        self.setAxisRange('x', (xMin, xMax), pad=.01)
+        self.setAxisRange('y', (0, len(keys) * self._barSpace), paddingFraction=.05)
+        self.setAxisRange('x', (xMin, xMax), paddingFraction=.01)
         self.setTicks('y', yTicks)  
 
         # first, see if ticks have been set externally
@@ -1099,7 +1156,7 @@ class GraphHorizontalBarWeighted(Graph):
 #                            rangeStep):
 #                 xTicks.append([x, '%s' % x])
 #                 self.setTicks('x', xTicks)  
-#         environLocal.pd(['xTicks', xTicks])
+#         environLocal.printDebug(['xTicks', xTicks])
 
         self._adjustAxisSpines(ax)
         self._applyFormatting(ax)
@@ -1215,8 +1272,8 @@ class GraphScatterWeighted(Graph):
                         "%s" % zList[i], size=6,
                         va="baseline", ha="left", multialignment="left")
 
-        self.setAxisRange('y', (yMin, yMax), pad=True)
-        self.setAxisRange('x', (xMin, xMax), pad=True)
+        self.setAxisRange('y', (yMin, yMax),)
+        self.setAxisRange('x', (xMin, xMax),)
 
         self._adjustAxisSpines(ax)
         self._applyFormatting(ax)
@@ -1244,6 +1301,7 @@ class GraphScatter(Graph):
 
     def process(self):
         '''
+        runs the data through the processor and if doneAction == 'show' (default), show the graph
         '''
         # figure size can be set w/ figsize=(5,10)
         self.fig = plt.figure()
@@ -1252,17 +1310,41 @@ class GraphScatter(Graph):
         xValues = []
         yValues = []
         i = 0
-        for x, y in self.data:
+        for row in self.data:
+            if len(row) < 2:
+                raise GraphException("Need at least two points for a graph data object!")
+            x = row[0]
+            y = row[1]
             xValues.append(x)
             yValues.append(y)
         xValues.sort()
         yValues.sort()
-        for x, y in self.data:
-            ax.plot(x, y, 'o', color=getColor(self.colors[i%len(self.colors)]), alpha=self.alpha)
+
+        for row in self.data:
+            x = row[0]
+            y = row[1]
+            marker = self.marker
+            color = getColor(self.colors[i%len(self.colors)])
+            alpha = self.alpha
+            markerSize = self.markerSize
+            if len(row) >= 3:
+                displayData = row[2]
+                if 'color' in displayData:
+                    color = displayData['color']
+                if 'marker' in displayData:
+                    marker = displayData['marker']
+                if 'alpha' in displayData:
+                    alpha = displayData['alpha']
+                if 'markerSize' in displayData:
+                    markerSize = displayData['markerSize']
+                    
+            ax.plot(x, y, marker, color=color, alpha=alpha, ms=markerSize)
             i += 1
         # values are sorted, so no need to use max/min
-        self.setAxisRange('y', (yValues[0], yValues[-1]), pad=True)
-        self.setAxisRange('x', (xValues[0], xValues[-1]), pad=True)
+        if not self._axisRangesAlreadySet['y']:
+            self.setAxisRange('y', (yValues[0], yValues[-1]))
+        if not self._axisRangesAlreadySet['x']:
+            self.setAxisRange('x', (xValues[0], xValues[-1]))
 
         self._adjustAxisSpines(ax)
         self._applyFormatting(ax)
@@ -1293,6 +1375,15 @@ class GraphHistogram(Graph):
         Graph.__init__(self, *args, **keywords)
         self.axisKeys = ['x', 'y']
         self._axisInit()
+        if 'binWidth' in keywords:
+            self.binWidth = keywords['binWidth']
+        else:
+            self.binWidth = 0.8
+            
+        if 'alpha' in keywords:
+            self.alpha = keywords['alpha']
+        else:
+            self.alpha = 0.8
 
     def process(self):
         # figure size can be set w/ figsize=(5,10)
@@ -1302,10 +1393,13 @@ class GraphHistogram(Graph):
 
         x = []
         y = []
-        for a, b in self.data:
+        binWidth = self.binWidth
+        color = getColor(self.colors[0])
+        alpha = self.alpha
+        for a,b in self.data:
             x.append(a)
             y.append(b)
-        ax.bar(x, y, alpha=.8, color=getColor(self.colors[0]))
+        ax.bar(x, y, width = binWidth, alpha=alpha, color=color)
 
         self._adjustAxisSpines(ax)
         self._applyFormatting(ax)
@@ -1340,12 +1434,22 @@ class GraphGroupedVerticalBar(Graph):
             self.roundDigits = keywords['roundDigits']
         else:
             self.roundDigits = 1
+        
+        if 'groupLabelHeight' in keywords:
+            self.groupLabelHeight = keywords['groupLabelHeight']
+        else:
+            self.groupLabelHeight = 0.0
+            
+        if 'binWidth' in keywords:
+            self.binWidth = keywords['binWidth']
+        else:
+            self.binWidth = 1
 
     def labelBars(self, ax, rects):
         # attach some text labels
         for rect in rects:
             height = rect.get_height()
-            ax.text(rect.get_x()+rect.get_width()/2., height+.05, '%s'%str(round(height, self.roundDigits)), ha='center', va='bottom', 
+            ax.text(rect.get_x()+rect.get_width()/2., height, '%s'%str(round(height, self.roundDigits)), ha='center', va='bottom', 
             fontsize=self.tickFontSize, family=self.fontFamily)
 
     def process(self):
@@ -1359,7 +1463,9 @@ class GraphGroupedVerticalBar(Graph):
             # get for legend
             subLabels = sorted(b.keys())
             break
-        widthShift = 1 / float(barsPerGroup)
+        
+        binWidth = self.binWidth
+        widthShift = binWidth / float(barsPerGroup)
 
         xVals = []
         yBundles = []
@@ -1375,10 +1481,11 @@ class GraphGroupedVerticalBar(Graph):
                 # get position, then get bar group
                 yVals.append(yBundles[j][i])
             xValsShifted = []
+            xLabels = []
             for x in xVals:
                 xValsShifted.append(x + (widthShift * i))
 
-            rect = ax.bar(xValsShifted, yVals, width=widthShift, alpha=.8, 
+            rect = ax.bar(xValsShifted, yVals, width=widthShift, alpha=.8,
                     color=getColor(self.colors[i % len(self.colors)]))
             rects.append(rect)
 
@@ -1493,6 +1600,16 @@ class Graph3DPolygonBars(Graph):
             self.barWidth = keywords['barWidth']
         else:
             self.barWidth = .1
+        
+        if 'useKeyValues' in keywords:
+            self.useKeyValues = keywords['useKeyValues']
+        else:
+            self.useKeyValues = False
+            
+        if 'zeroFloor' in keywords:
+            self.zeroFloor = keywords['zeroFloor']
+        else:
+            self.zeroFloor = False
 
     def process(self):
         cc = lambda arg: matplotlib.colors.colorConverter.to_rgba(getColor(arg),
@@ -1534,7 +1651,10 @@ class Graph3DPolygonBars(Graph):
         #environLocal.printDebug(['3d axis range, x:', min(xVals), max(xVals)])
 
         # z values here end up being height of the graph
-        self.setAxisRange('z', (min(yVals), max(yVals)))
+        if self.zeroFloor is True:
+            self.setAxisRange('z', (0, max(yVals)))
+        else:
+            self.setAxisRange('z', (min(yVals), max(yVals)))
         #environLocal.printDebug(['3d axis range, z (from y):', min(yVals), max(yVals)])
 
         # y values are the z of the graph, the depth
@@ -1553,7 +1673,11 @@ class Graph3DPolygonBars(Graph):
         low, high = self.axis['y']['range']
         low = int(math.floor(low))
         high = int(math.ceil(high))
-        zs = range(low, high+1)
+        
+        if self.useKeyValues is True:
+            zs = zVals
+        else:
+            zs = range(low, high+1)
 
         poly = collections.PolyCollection(verts, facecolors=vertsColor)
         poly.set_alpha(self.alpha)
@@ -1765,23 +1889,34 @@ class PlotStream(object):
 
     def ticksPitchClassUsage(self, pcMin=0, pcMax=11, showEnharmonic=True,
             blankLabelUnused=True, hideUnused=False):
-        '''Get ticks and labels for pitch classes based on usage. That is, show the most commonly used enharmonic first.
+        r'''
+        Get ticks and labels for pitch classes.
+        
+        If `showEnharmonic` is `True` (default) then 
+        when choosing whether to display as sharp or flat use
+        the most commonly used enharmonic.
 
-        >>> from music21 import corpus
+        >>> from music21 import *
         >>> s = corpus.parse('bach/bwv324.xml')
-        >>> a = PlotStream(s)
-        >>> [x for x, y in a.ticksPitchClassUsage(hideUnused=True)]
-        [0, 2, 3, 4, 6, 7, 9, 11]
+        >>> s.analyze('key')
+        <music21.key.Key of G major>
+        >>> a = graph.PlotStream(s)
+        >>> a.ticksPitchClassUsage(hideUnused=True)
+        [[0, u'C'], [2, u'D'], [3, u'D$\\sharp$'], [4, u'E'], [6, u'F$\\sharp$'], [7, u'G'], [9, u'A'], [11, u'B']]
 
         >>> s = corpus.parse('bach/bwv281.xml')
-        >>> a = PlotStream(s)
+        >>> a = graph.PlotStream(s)
         >>> [x for x, y in a.ticksPitchClassUsage(showEnharmonic=True, hideUnused=True)]
         [0, 2, 3, 4, 5, 7, 9, 10, 11]
         >>> [x for x, y in a.ticksPitchClassUsage(showEnharmonic=True, blankLabelUnused=False)]
         [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 
-        >>> s = corpus.parse('schumann/opus41no1/movement2.xml')
-        >>> a = PlotStream(s)
+        >>> s = stream.Stream()
+        >>> for i in range(60, 84):
+        ...    n = note.Note()
+        ...    n.ps = i
+        ...    s.append(n)
+        >>> a = graph.PlotStream(s)
         >>> [x for x, y in a.ticksPitchClassUsage(showEnharmonic=True)]
         [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 
@@ -1799,7 +1934,7 @@ class PlotStream(object):
             p.ps = i
             weights = [] # a list of pairs of count/label
             for key in nameCount.keys():
-                if pitch.convertNameToPitchClass(key) == i:
+                if pitch.Pitch(key).pitchClass == i:
                     weights.append((nameCount[key], key))
             weights.sort()
             label = []
@@ -1822,13 +1957,17 @@ class PlotStream(object):
         return ticks
 
     def ticksPitchClass(self, pcMin=0, pcMax=11):
-        '''Utility method to get ticks in pitch classes
+        r'''
+        Utility method to get ticks in pitch classes
 
-        >>> from music21 import corpus
-        >>> s = corpus.parse('bach/bwv324.xml')
-        >>> a = PlotStream(s)
-        >>> [x for x,y in a.ticksPitchClass()]
-        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+        Uses the default label for each pitch class regardless of what is in the `Stream`
+        (unlike `ticksPitchClassUsage()`)
+
+        >>> from music21 import *
+        >>> s = stream.Stream()
+        >>> a = graph.PlotStream(s)
+        >>> a.ticksPitchClass()
+        [[0, 'C'], [1, 'C$\\sharp$'], [2, 'D'], [3, 'E$\\flat$'], [4, 'E'], [5, 'F'], [6, 'F$\\sharp$'], [7, 'G'], [8, 'G$\\sharp$'], [9, 'A'], [10, 'B$\\flat$'], [11, 'B']]
         '''
         ticks = []
         for i in range(pcMin, pcMax+1):
@@ -1839,43 +1978,46 @@ class PlotStream(object):
         return ticks
    
     def ticksPitchSpaceOctave(self, pitchMin=36, pitchMax=100):
-        '''Utility method to get ticks in pitch space only for every octave.
+        '''
+        Utility method to get ticks in pitch space only for every octave.
 
-        >>> from music21 import stream; s = stream.Stream()
-        >>> a = PlotStream(s)
+        >>> from music21 import *
+        >>> s = stream.Stream()
+        >>> a = graph.PlotStream(s)
         >>> a.ticksPitchSpaceOctave()
         [[36, 'C2'], [48, 'C3'], [60, 'C4'], [72, 'C5'], [84, 'C6'], [96, 'C7']]
         '''
         ticks = []
-        cVals = range(pitchMin,pitchMax,12)
+        cVals = range(pitchMin, pitchMax, 12)
         for i in cVals:
-            name, acc, micro, octShift = pitch.convertPsToStep(i)
-            oct = pitch.convertPsToOct(i)
-            ticks.append([i, '%s%s' % (name, oct)])
+            p = pitch.Pitch(ps = i)
+            ticks.append([i, '%s' % (p.nameWithOctave)])
         ticks = self._filterPitchLabel(ticks)
         return ticks
 
 
     def ticksPitchSpaceChromatic(self, pitchMin=36, pitchMax=100):
-        '''Utility method to get ticks in pitch space values.
+        r'''Utility method to get ticks in pitch space values.
 
-        >>> from music21 import stream; s = stream.Stream()
-        >>> a = PlotStream(s)
-        >>> [x for x,y in a.ticksPitchSpaceChromatic(60,72)]
+        >>> from music21 import *
+        >>> s = stream.Stream()
+        >>> a = graph.PlotStream(s)
+        >>> a.ticksPitchSpaceChromatic(20, 24)
+        [[20, 'G$\\sharp$0'], [21, 'A0'], [22, 'B$\\flat$0'], [23, 'B0'], [24, 'C1']]
+        >>> [x for x,y in a.ticksPitchSpaceChromatic(60, 72)]
         [60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72]
         '''
         ticks = []
         cVals = range(pitchMin, pitchMax+1)
         for i in cVals:
-            name, acc, micro, octShift = pitch.convertPsToStep(i)
-            oct = pitch.convertPsToOct(i)
-            # should be able to just use nameWithOctave
-            ticks.append([i, '%s%s%s' % (name, acc.modifier, oct)])
+            p = pitch.Pitch(ps = i)
+            ticks.append([i, '%s' % (p.nameWithOctave)])
         ticks = self._filterPitchLabel(ticks)
         return ticks
 
     def ticksPitchSpaceQuartertone(self, pitchMin=36, pitchMax=100):
-        '''Utility method to get ticks in pitch space values.
+        '''
+        Utility method to get ticks in quarter-tone pitch space values.
         '''
         ticks = []
         cVals = []
@@ -1884,27 +2026,25 @@ class PlotStream(object):
             if i != pitchMax: # if not last
                 cVals.append(i+.5)        
         for i in cVals:
-            name, acc, micro, octShift = pitch.convertPsToStep(i)
-            # might check for quarter tones and remove
-            oct = pitch.convertPsToOct(i)
+            p = pitch.Pitch(ps = i)
             # should be able to just use nameWithOctave
-            ticks.append([i, '%s%s%s' % (name, acc.modifier, oct)])
+            ticks.append([i, '%s' % (p.nameWithOctave)])
         ticks = self._filterPitchLabel(ticks)
-        environLocal.pd(['ticksPitchSpaceQuartertone', ticks])
+        environLocal.printDebug(['ticksPitchSpaceQuartertone', ticks])
         return ticks
 
     def ticksPitchSpaceUsage(self, pcMin=36, pcMax=72,
             showEnharmonic=False, blankLabelUnused=True, hideUnused=False):
         '''Get ticks and labels for pitch space based on usage. That is, show the most commonly used enharmonic first.
 
-        >>> from music21 import corpus
+        >>> from music21 import *
         >>> s = corpus.parse('bach/bwv324.xml')
-        >>> a = PlotStream(s.parts[0])
+        >>> a = graph.PlotStream(s.parts[0])
         >>> [x for x, y in a.ticksPitchSpaceUsage(hideUnused=True)]
         [64, 66, 67, 69, 71, 72]
 
         >>> s = corpus.parse('schumann/opus41no1/movement2.xml')
-        >>> a = PlotStream(s)
+        >>> a = graph.PlotStream(s)
         >>> [x for x, y in a.ticksPitchSpaceUsage(showEnharmonic=True, hideUnused=True)]
         [36, 38, 40, 41, 43, 44, 45, 47, 48, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72]
 
@@ -1924,7 +2064,7 @@ class PlotStream(object):
             p.ps = i # set pitch space value
             weights = [] # a list of pairs of count/label
             for key in nameWithOctaveCount.keys():
-                if pitch.convertNameToPs(key) == i:
+                if pitch.Pitch(key).ps == i:
                     weights.append((nameWithOctaveCount[key], key))
             weights.sort()
             label = []
@@ -1949,7 +2089,9 @@ class PlotStream(object):
 
     def ticksPitchSpaceQuartertoneUsage(self, pcMin=36, pcMax=72,
             showEnharmonic=False, blankLabelUnused=True, hideUnused=False):
-        '''Get ticks and labels for pitch space based on usage. That is, show the most commonly used enharmonic first.
+        '''
+        Get ticks and labels for pitch space based on usage. 
+        That is, show the most commonly used enharmonic first.
         '''
         # keys are integers
         pcCount = self.streamObj.pitchAttributeCount('pitchClass')
@@ -1968,7 +2110,7 @@ class PlotStream(object):
             p.ps = i # set pitch space value
             weights = [] # a list of pairs of count/label
             for key in nameWithOctaveCount.keys():
-                if pitch.convertNameToPs(key) == i:
+                if pitch.Pitch(key).ps == i:
                     weights.append((nameWithOctaveCount[key], key))
             weights.sort()
             label = []
@@ -1996,38 +2138,39 @@ class PlotStream(object):
     def ticksOffset(self, offsetMin=None, offsetMax=None, offsetStepSize=None,
                     displayMeasureNumberZero=False, minMaxOnly=False, 
                     remap=False):
-        '''Get offset ticks. If Measures are found, they will be used to create ticks. If not, `offsetStepSize` will be used to create offset ticks between min and max. The `remap` parameter is not yet used. 
+        '''
+        Get offset ticks. If `Measure` objects are found, they will be used to 
+        create ticks. If not, `offsetStepSize` will be used to create 
+        offset ticks between min and max. 
 
         If `minMaxOnly` is True, only the first and last values will be provided.
 
-        >>> from music21 import corpus, stream, note
+        The `remap` parameter is not yet used.
+
+        >>> from music21 import *
         >>> s = corpus.parse('bach/bwv281.xml')
-        >>> a = PlotStream(s)
+        >>> a = graph.PlotStream(s)
         >>> a.ticksOffset() # on whole score, showing anacrusis spacing
         [[0.0, '0'], [1.0, '1'], [5.0, '2'], [9.0, '3'], [13.0, '4'], [17.0, '5'], [21.0, '6'], [25.0, '7'], [29.0, '8']]
 
-        >>> a = PlotStream(s.parts[0].flat) # on a Part
+        >>> a = graph.PlotStream(s.parts[0].flat) # on a Part
         >>> a.ticksOffset() # on whole score, showing anacrusis spacing
         [[0.0, '0'], [1.0, '1'], [5.0, '2'], [9.0, '3'], [13.0, '4'], [17.0, '5'], [21.0, '6'], [25.0, '7'], [29.0, '8']]
         >>> a.ticksOffset(8, 12, 2)
         [[9.0, '3']]
 
-        >>> a = PlotStream(s.parts[0].flat) # on a Flat collection
+        >>> a = graph.PlotStream(s.parts[0].flat) # on a Flat collection
         >>> a.ticksOffset(8, 12, 2)
         [[9.0, '3']]
 
         >>> n = note.Note('a') # on a raw collection of notes with no measures
         >>> s = stream.Stream()
         >>> s.repeatAppend(n, 10)
-        >>> a = PlotStream(s) # on a Part
+        >>> a = graph.PlotStream(s) # on a Part
         >>> a.ticksOffset() # on whole score
         [[0, '0'], [10, '10']]
         '''
-        # importing stream only within method here
-        # need stream.Measure to match measure numbers
-        # may be a better way
         from music21 import stream
-
         if self.flatten:
             sSrc = self.streamObj.flat
         else:
@@ -2109,9 +2252,11 @@ class PlotStream(object):
         return ticks
 
     def remapQuarterLength(self, x):
-        '''Remap all quarter lengths.
         '''
-        if x == 0: # not expected but does happne
+        Remap a quarter length as its log2.  Essentially it's
+        just math.log(x, 2), but 0 gives 0.
+        '''
+        if x == 0: # not expected but does happen
             return 0
         try:
             return math.log(x, 2)
@@ -2119,11 +2264,30 @@ class PlotStream(object):
             raise GraphException('cannot take log of x value: %s' %  x)
         #return pow(x, .5)
 
-    def ticksQuarterLength(self, min=.25, max=4, remap=True):
-        '''Get ticks for quarterLength. If `remap` is True, the remapQuarterLength() function will be used to scale displayed quarter lengths by log base 2. 
+    def ticksQuarterLength(self, min=None, max=None, remap=True):
+        '''
+        Get ticks for quarterLength. 
+        
+        If `remap` is `True` (the default), the `remapQuarterLength()`
+        method will be used to scale displayed quarter lengths 
+        by log base 2. 
 
-        >>> from music21 import stream; s = stream.Stream()
-        >>> a = PlotStream(s)
+        Note that mix and max do nothing, but must be included
+        in order to set the tick style.
+
+        >>> from music21 import * 
+        >>> s = stream.Stream()
+        >>> for t in ['32nd', '16th', 'eighth', 'quarter', 'half']:
+        ...     n = note.Note()
+        ...     n.duration.type = t
+        ...     s.append(n)
+        
+        >>> a = graph.PlotStream(s)
+        >>> a.ticksQuarterLength()
+        [[-3.0, '0.13'], [-2.0, '0.25'], [-1.0, '0.5'], [0.0, '1.0'], [1.0, '2.0']]
+
+        >>> a.ticksQuarterLength(remap = False)
+        [[0.125, '0.13'], [0.25, '0.25'], [0.5, '0.5'], [1.0, '1.0'], [2.0, '2.0']]
         '''
         if self.flatten:
             sSrc = self.streamObj.flat
@@ -2144,14 +2308,18 @@ class PlotStream(object):
 
    
     def ticksDynamics(self, minNameIndex=None, maxNameIndex=None):
-        '''Utility method to get ticks in dynamic values.
+        '''
+        Utility method to get ticks in dynamic values:
 
-        >>> from music21 import stream; s = stream.Stream()
-        >>> a = PlotStream(s)
+        >>> from music21 import *
+        >>> s = stream.Stream()
+        >>> a = graph.PlotStream(s)
         >>> a.ticksDynamics()
         [[0, '$pppppp$'], [1, '$ppppp$'], [2, '$pppp$'], [3, '$ppp$'], [4, '$pp$'], [5, '$p$'], [6, '$mp$'], [7, '$mf$'], [8, '$f$'], [9, '$fp$'], [10, '$sf$'], [11, '$ff$'], [12, '$fff$'], [13, '$ffff$'], [14, '$fffff$'], [15, '$ffffff$']]
 
-        >>> a.ticksDynamics(3,6)
+        A minimum and maximum dynamic index can be specified:
+
+        >>> a.ticksDynamics(3, 6)
         [[3, '$ppp$'], [4, '$pp$'], [5, '$p$'], [6, '$mp$']]
 
         '''
@@ -2172,7 +2340,9 @@ class PlotStream(object):
 # base class for multi-stream displays
 
 class PlotMultiStream(object):
-    '''Approaches to plotting and graphing multiple Streams. A base class from which Stream plotting Classes inherit.
+    '''
+    Approaches to plotting and graphing multiple Streams. 
+    A base class from which Stream plotting Classes inherit.
 
     '''
     # the following static parameters are used to for matching this
@@ -2182,9 +2352,15 @@ class PlotMultiStream(object):
     # store a list of parameters that are graphed
     values = []
 
-    def __init__(self, streamList, labelList=[], *args, **keywords):
-        '''Provide a list of Streams as an argument. Optionally provide an additional list of labels for each list. If `flatten` is True, the Streams will automatically be flattened.
+    def __init__(self, streamList, labelList=None, *args, **keywords):
         '''
+        Provide a list of Streams as an argument. Optionally 
+        provide an additional list of labels for each list. 
+        
+        If `flatten` is True, the Streams will automatically be flattened.
+        '''
+        if labelList is None:
+            labelList = []
 
         self.streamList = []
         foundPaths = []
@@ -2210,7 +2386,10 @@ class PlotMultiStream(object):
 
 
     def process(self):
-        '''This will process all data, as well as call the done() method. What happens when the done() is called is determined by the the keyword argument `doneAction`; options are 'show' (display immediately), 'write' (write the file to a supplied file path), and None (do processing but do not write or show a graph).
+        '''
+        This will process all data, as well as call 
+        the done() method. What happens when the done() is 
+        called is determined by the the keyword argument `doneAction`; options are 'show' (display immediately), 'write' (write the file to a supplied file path), and None (do processing but do not write or show a graph).
 
         Subclass dependent data extracted is stored in the self.data attribute. 
         '''
@@ -2361,9 +2540,8 @@ class PlotWindowedKrumhanslSchmuckler(PlotWindowedAnalysis):
     '''Stream plotting of windowed version of Krumhansl-Schmuckler analysis routine. See :class:`~music21.analysis.discrete.KrumhanslSchmuckler` for more details.
 
     >>> from music21 import *
-    >>> s = corpus.parse('bach/bwv66.6.xml') #_DOCS_HIDE
+    >>> s = corpus.parse('bach/bwv66.6')
     >>> p = graph.PlotWindowedKrumhanslSchmuckler(s.parts[0], doneAction=None) #_DOCS_HIDE
-    >>> #_DOCS_SHOW s = corpus.parse('bach/bwv66.6')
     >>> #_DOCS_SHOW p = graph.PlotWindowedKrumhanslSchmuckler(s.parts[0])
     >>> p.process() # with defaults and proper configuration, will open graph
 
@@ -2379,7 +2557,9 @@ class PlotWindowedKrumhanslSchmuckler(PlotWindowedAnalysis):
             discrete.KrumhanslSchmuckler(streamObj), *args, **keywords)
     
 class PlotWindowedKrumhanslKessler(PlotWindowedAnalysis):
-    '''Stream plotting of windowed version of Krumhansl-Kessler analysis routine. See :class:`~music21.analysis.discrete.KrumhanslKessler` for more details.
+    '''
+    Stream plotting of windowed version of Krumhansl-Kessler 
+    analysis routine. See :class:`~music21.analysis.discrete.KrumhanslKessler` for more details.
     '''
     values = discrete.KrumhanslKessler.identifiers
     def __init__(self, streamObj, *args, **keywords):
@@ -2387,7 +2567,10 @@ class PlotWindowedKrumhanslKessler(PlotWindowedAnalysis):
             discrete.KrumhanslKessler(streamObj), *args, **keywords)
 
 class PlotWindowedAardenEssen(PlotWindowedAnalysis):
-    '''Stream plotting of windowed version of Aarden-Essen analysis routine. See :class:`~music21.analysis.discrete.AardenEssen` for more details.
+    '''
+    Stream plotting of windowed version of Aarden-Essen 
+    analysis routine. 
+    See :class:`~music21.analysis.discrete.AardenEssen` for more details.
     '''
     values = discrete.AardenEssen.identifiers
     def __init__(self, streamObj, *args, **keywords):
@@ -2395,7 +2578,9 @@ class PlotWindowedAardenEssen(PlotWindowedAnalysis):
             discrete.AardenEssen(streamObj), *args, **keywords)
 
 class PlotWindowedSimpleWeights(PlotWindowedAnalysis):
-    '''Stream plotting of windowed version of Simple Weights analysis routine. See :class:`~music21.analysis.discrete.SimpleWeights` for more details.
+    '''
+    Stream plotting of windowed version of Simple Weights analysis 
+    routine. See :class:`~music21.analysis.discrete.SimpleWeights` for more details.
     '''
     values = discrete.SimpleWeights.identifiers
     def __init__(self, streamObj, *args, **keywords):
@@ -2403,7 +2588,9 @@ class PlotWindowedSimpleWeights(PlotWindowedAnalysis):
             discrete.SimpleWeights(streamObj), *args, **keywords)
 
 class PlotWindowedBellmanBudge(PlotWindowedAnalysis):
-    '''Stream plotting of windowed version of Bellman-Budge analysis routine. See :class:`~music21.analysis.discrete.BellmanBudge` for more details.
+    '''
+    Stream plotting of windowed version of Bellman-Budge analysis 
+    routine. See :class:`~music21.analysis.discrete.BellmanBudge` for more details.
     '''
     values = discrete.BellmanBudge.identifiers
     def __init__(self, streamObj, *args, **keywords):
@@ -2411,7 +2598,10 @@ class PlotWindowedBellmanBudge(PlotWindowedAnalysis):
             discrete.BellmanBudge(streamObj), *args, **keywords)
 
 class PlotWindowedTemperleyKostkaPayne(PlotWindowedAnalysis):
-    '''Stream plotting of windowed version of Temperley-Kostka-Payne analysis routine. See :class:`~music21.analysis.discrete.TemperleyKostkaPayne` for more details.
+    '''
+    Stream plotting of windowed version of Temperley-Kostka-Payne 
+    analysis routine. 
+    See :class:`~music21.analysis.discrete.TemperleyKostkaPayne` for more details.
     '''
     values = discrete.TemperleyKostkaPayne.identifiers
     def __init__(self, streamObj, *args, **keywords):
@@ -2424,9 +2614,8 @@ class PlotWindowedAmbitus(PlotWindowedAnalysis):
     '''Stream plotting of basic pitch span. 
 
     >>> from music21 import *
-    >>> s = corpus.parse('bach/bwv66.6.xml') #_DOCS_HIDE
+    >>> s = corpus.parse('bach/bwv66.6')
     >>> p = graph.PlotWindowedAmbitus(s.parts[0], doneAction=None) #_DOCS_HIDE
-    >>> #_DOCS_SHOW s = corpus.parse('bach/bwv66.6')
     >>> #_DOCS_SHOW p = graph.PlotWindowedAmbitus(s.parts[0])
     >>> p.process() # with defaults and proper configuration, will open graph
 
@@ -2447,7 +2636,10 @@ class PlotWindowedAmbitus(PlotWindowedAnalysis):
 # histograms
 
 class PlotHistogram(PlotStream):
-    '''Base class for Stream plotting classes.
+    '''
+    Base class for Stream plotting classes.
+
+    Plots take a Stream as their arguments, Graphs take any data.
 
     '''
     format = 'histogram'
@@ -2612,6 +2804,8 @@ class PlotHistogramPitchClass(PlotHistogram):
             self.graph.setFigureSize([6,6])
         if 'title' not in keywords:
             self.graph.setTitle('Pitch Class Histogram')
+
+
 
 
 class PlotHistogramQuarterLength(PlotHistogram):
@@ -3125,7 +3319,7 @@ class PlotHorizontalBarWeighted(PlotStream):
                 normalizeByPart=self.normalizeByPart)
         pr.process()
         data = pr.getGraphHorizontalBarWeightedData()
-        #environLocal.pd(['data', data])
+        #environLocal.printDebug(['data', data])
         uniqueOffsets = []
         for key, value in data:
             for dataList in value:
@@ -3213,12 +3407,21 @@ class PlotDolan(PlotHorizontalBarWeighted):
         if len(instStream) == 0:
             return # do not set anything
         
-        if len(instStream) == 4:
+        if len(instStream) == 4 and self.streamObj.getElementById('Soprano') is not None:
             pgOrc = [
                 {'name':'Soprano', 'color':'purple', 'match':['soprano', '0']},
                 {'name':'Alto', 'color':'orange', 'match':['alto', '1']},
                 {'name':'Tenor', 'color':'lightgreen', 'match':['tenor']},
                 {'name':'Bass', 'color':'mediumblue', 'match':['bass']}, 
+            ]
+            self.partGroups = pgOrc
+            
+        elif len(instStream) == 4 and self.streamObj.getElementById('Viola') is not None:
+            pgOrc = [
+                {'name':'1st Violin', 'color':'purple', 'match':['1st violin', '0', 'violin 1']},
+                {'name':'2nd Violin', 'color':'orange', 'match':['2nd violin', '1', 'violin 2']},
+                {'name':'Viola', 'color':'lightgreen', 'match':['viola']},
+                {'name':'Cello', 'color':'mediumblue', 'match':['cello', 'violoncello', "'cello"]}, 
             ]
             self.partGroups = pgOrc
 
@@ -3444,9 +3647,8 @@ class PlotScatterWeightedPitchSpaceDynamicSymbol(PlotScatterWeighted):
 
 
     >>> from music21 import *
-    >>> s = corpus.parse('schumann/opus41no1', 2) #_DOCS_HIDE
+    >>> s = corpus.parse('schumann/opus41no1', 2)
     >>> p = graph.PlotScatterWeightedPitchSpaceDynamicSymbol(s, doneAction=None) #_DOCS_HIDE
-    >>> #_DOCS_SHOW s = corpus.parse('schumann/opus41no1', 2)
     >>> #_DOCS_SHOW p = graph.PlotScatterWeightedPitchSpaceDynamicSymbol(s)
     >>> p.process() # with defaults and proper configuration, will open graph
 
@@ -3856,7 +4058,7 @@ def _getPlotsToMake(*args, **keywords):
                             break
                     if len(plotMake) > 0: # found a match
                         break
-    #environLocal.pd(['plotMake', plotMake])
+    #environLocal.printDebug(['plotMake', plotMake])
     return plotMake
 
 def plotStream(streamObj, *args, **keywords):
@@ -4818,6 +5020,7 @@ _DOC_ORDER = [
 
 if __name__ == "__main__":
     # sys.arg test options will be used in mainTest()
+    import music21
     music21.mainTest(Test)
 
 

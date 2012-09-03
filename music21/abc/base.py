@@ -5,8 +5,8 @@
 #
 # Authors:      Christopher Ariza
 #
-# Copyright:    (c) 2010-2012 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2010-2012 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 '''
 Objects and resources for processing ABC data. 
@@ -20,7 +20,6 @@ ABC conversion from a file or URL to a :class:`~music21.stream.Stream` is availa
 Low level ABC conversion is facilitated by the objects in this module and :func:`music21.abc.translate.abcToStreamScore`.
 '''
 
-import music21
 import unittest
 import re, codecs
 
@@ -32,6 +31,8 @@ except:
 
 from music21 import common
 from music21 import environment
+from music21 import exceptions21
+
 _MOD = 'abc.base.py'
 environLocal = environment.Environment(_MOD)
 
@@ -70,14 +71,14 @@ reChord = re.compile('[.*?]') # non greedy
 
 
 #-------------------------------------------------------------------------------
-class ABCTokenException(Exception):
+class ABCTokenException(exceptions21.Music21Exception):
     pass
 
-class ABCHandlerException(Exception):
+class ABCHandlerException(exceptions21.Music21Exception):
     pass
 
 
-class ABCFileException(Exception):
+class ABCFileException(exceptions21.Music21Exception):
     pass
 
 
@@ -526,7 +527,7 @@ class ABCMetadata(ABCToken):
                     if dur.count('/') > 0:                
                         n, d = dur.split('/')
                     else: # this is an error case
-                        environLocal.pd(['incorrectly encoded / unparsable duration:', dur])
+                        environLocal.printDebug(['incorrectly encoded / unparsable duration:', dur])
                         n, d = 1, 1
                     referent += (float(n) / float(d)) * 4
             else: # assume we just have a quarter definition, e.g., Q:90
@@ -570,7 +571,7 @@ class ABCMetadata(ABCToken):
         0.5
 
         '''
-        #environLocal.pd(['getDefaultQuarterLength', self.data])
+        #environLocal.printDebug(['getDefaultQuarterLength', self.data])
         if self.isDefaultNoteLength() and '/' in self.data:
             # should be in L:1/4 form
             n, d = self.data.split('/')
@@ -987,6 +988,11 @@ class ABCNote(ABCToken):
         ('Cn5', True)
         >>> an._getPitchName("z4") 
         (None, None)
+        
+        Grace note
+        >>> an._getPitchName("{c}")
+        ('C5', None)
+
 
         >>> an.activeKeySignature = key.KeySignature(3)
         >>> an._getPitchName("c") # w/ key, change and set to false
@@ -1108,7 +1114,6 @@ class ABCNote(ABCToken):
 
         >>> an._getQuarterLength('A', forceDefaultQuarterLength=1)
         1.875
-
         '''
         if forceDefaultQuarterLength != None:
             activeDefaultQuarterLength = forceDefaultQuarterLength
@@ -1125,7 +1130,7 @@ class ABCNote(ABCToken):
         numStr = ''.join(numStr)
         numStr = numStr.strip()
 
-        #environLocal.pd(['numStr', numStr])
+        #environLocal.printDebug(['numStr', numStr])
 
         # get default
         if numStr == '':
@@ -1147,7 +1152,7 @@ class ABCNote(ABCToken):
             ql = activeDefaultQuarterLength * (float(n) / d)
         # if we have two, this is usually an error
         elif numStr.count('/') == 2:
-            environLocal.pd(['incorrectly encoded / unparsable duration:', numStr])
+            environLocal.printDebug(['incorrectly encoded / unparsable duration:', numStr])
             ql = 1 # provide a default
 
         # assume we have a complete fraction
@@ -1192,7 +1197,7 @@ class ABCNote(ABCToken):
 
     def parse(self, forceDefaultQuarterLength=None, 
                     forceKeySignature=None):
-        #environLocal.pd(['parse', self.src])
+        #environLocal.printDebug(['parse', self.src])
         self.chordSymbols, nonChordSymStr = self._splitChordSymbols(self.src)        
         # get pitch name form remaining string
         # rests will have a pitch name of None
@@ -1639,7 +1644,7 @@ class ABCHandler(object):
                     tPrev.brokenRhythmMarker = (t.data, 'left')
                     tNext.brokenRhythmMarker = (t.data, 'right')
                 else:
-                    environLocal.pd(['broken rhythm marker (%s) not positioned between two notes or chords' % t.src])
+                    environLocal.printDebug(['broken rhythm marker (%s) not positioned between two notes or chords' % t.src])
 
             # need to update tuplets with currently active meter
             if isinstance(t, ABCTuplet):
@@ -2665,6 +2670,7 @@ _DOC_ORDER = [ABCFile, ABCHandler, ABCHandlerBar]
 
 if __name__ == "__main__":
     # sys.arg test options will be used in mainTest()
+    import music21
     music21.mainTest(Test)
 
 

@@ -5,14 +5,14 @@
 #
 # Authors:      Christopher Ariza
 #
-# Copyright:    (c) 2011 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2011 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 
 
 import unittest
 
-import music21
+from music21 import exceptions21
 
 from music21 import scale
 from music21 import stream
@@ -26,7 +26,7 @@ environLocal = environment.Environment(_MOD)
 
 
 
-class SearchModuleException(Exception):
+class SearchModuleException(exceptions21.Music21Exception):
     pass
 
 
@@ -423,6 +423,7 @@ class Test(unittest.TestCase):
 
 #------------------------------------------------------------------------------
 if __name__ == "__main__":
+    import music21
     music21.mainTest(Test)
 
 

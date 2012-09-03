@@ -6,21 +6,23 @@
 # Authors:      Michael Scott Cuthbert
 #               Christopher Ariza
 #
-# Copyright:    (c) 2009-2012 The music21 Project
+# Copyright:    Copyright © 2008-2012 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 
 '''Editorial objects store comments and other meta-data associated with specific :class:`~music21.note.Note` objects or other music21 objects. 
 '''
 
+from __future__ import unicode_literals
 
 import doctest, unittest
-import music21
+from music21 import exceptions21
+from music21 import base
 
-class EditorialException(Exception):
+class EditorialException(exceptions21.Music21Exception):
     pass
 
-class CommentException(Exception):
+class CommentException(exceptions21.Music21Exception):
     pass
 
 def getObjectsWithEditorial(listToSearch, editorialStringToFind, 
@@ -70,7 +72,7 @@ def getObjectsWithEditorial(listToSearch, editorialStringToFind,
             pass
     return listofOBJToReturn
     
-class NoteEditorial(music21.JSONSerializer):
+class NoteEditorial(base.JSONSerializer):
     '''Editorial comments and special effects that can be applied to notes
     Standard ones are stored as attributes.  Non-standard/one-off effects are
     stored in the dict called "misc":
@@ -118,7 +120,7 @@ class NoteEditorial(music21.JSONSerializer):
     }
     
     def __init__(self):
-        music21.JSONSerializer.__init__(self)
+        base.JSONSerializer.__init__(self)
 
         self.ficta = None  # Accidental object -- N.B. for PRINTING only not for determining intervals
         self.color = None
@@ -140,18 +142,18 @@ class NoteEditorial(music21.JSONSerializer):
 
     def lilyStart(self):
         r'''
-        A method that returns a string (not LilyString) containing the 
+        A method that returns a string containing the 
         lilypond output that comes before the note.
         
         >>> from music21 import *
         >>> n = note.Note()
         >>> n.editorial.lilyStart()   
-        ''
+        u''
         >>> n.editorial.ficta = pitch.Accidental("Sharp")
         >>> n.editorial.color = "blue"
         >>> n.editorial.hidden = True
-        >>> n.editorial.lilyStart()
-        u'\\ficta \\color "blue" \\hideNotes '
+        >>> print n.editorial.lilyStart()
+        \ficta \color "blue" \hideNotes
         
         '''
         baseRet = ""
@@ -160,20 +162,21 @@ class NoteEditorial(music21.JSONSerializer):
         if self.color:
             baseRet += self.colorLilyStart()
         if self.hidden is True:
-            baseRet += "\\hideNotes "
+            baseRet += r"\hideNotes "
             
         return baseRet
 
     def fictaLilyStart(self):
         r''' 
-        returns \\ficta -- called out so it is more easily subclassed'''
-        return "\\ficta "
+        returns \ficta -- called out so it is more easily subclassed
+        '''
+        return r"\ficta "
 
     def colorLilyStart(self):
         r'''
-        returns \\color "theColorName" -- called out so it is more easily subclassed
+        returns \color "theColorName" -- called out so it is more easily subclassed
         '''
-        return u"\\color \"" + self.color + "\" "
+        return r'\color "' + self.color + '" '
 
     def lilyAttached(self):
         r'''returns any information that should be attached under the note,
@@ -186,7 +189,7 @@ class NoteEditorial(music21.JSONSerializer):
     
     def lilyEnd(self):
         r'''
-        returns a string (not LilyString) of editorial lily
+        returns a string of editorial lily
         instructions to come after the note.  Currently it is
         just info to turn off hidding of notes.
         '''
@@ -199,7 +202,7 @@ class NoteEditorial(music21.JSONSerializer):
         return baseRet
 
         
-class Comment(music21.JSONSerializer):
+class Comment(base.JSONSerializer):
     '''
     an object that adds text above or below a note:
     
@@ -208,10 +211,11 @@ class Comment(music21.JSONSerializer):
     >>> n.editorial.comment.text = "hello"
     >>> n.editorial.comment.position = "above"
     >>> n.editorial.comment.lily
-    '^"hello"'
+    u'^"hello"'
     
     '''
     def __init__(self):
+        base.JSONSerializer.__init__(self)
         self.position = "below"
         self.text = None
     
@@ -272,6 +276,7 @@ _DOC_ORDER = [NoteEditorial]
 if __name__ == "__main__":
     #import doctest
     #doctest.testmod()
+    import music21
     music21.mainTest(Test)
 
 

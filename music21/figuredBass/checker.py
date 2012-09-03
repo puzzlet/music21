@@ -1,16 +1,15 @@
-#!/usr/bin/python
+# -*- coding: utf-8 -*-
 #-------------------------------------------------------------------------------
 # Name:         checker.py
 # Purpose:      music21 class which can parse a stream of parts and check your homework
 # Authors:      Jose Cabal-Ugaz
 #
-# Copyright:    (c) 2012 The music21 Project    
-# License:      LGPL
+# Copyright:    Copyright © 2012 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 
 import collections
 import copy
-import music21
 import unittest
 
 from music21 import stream
@@ -695,7 +694,7 @@ def generalNoteToPitch(music21GeneralNote):
     >>> c1 = chord.Chord(['C3','E3','G3'])
     >>> from music21.figuredBass import checker
     >>> checker.generalNoteToPitch(n1)
-    G5
+    <music21.pitch.Pitch G5>
     >>> checker.generalNoteToPitch(c1)
     'RT'
     '''
@@ -712,6 +711,7 @@ class Test(unittest.TestCase):
         pass
 
 if __name__ == "__main__":
+    import music21
     music21.mainTest(Test)
 
 #------------------------------------------------------------------------------

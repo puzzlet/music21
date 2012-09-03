@@ -6,7 +6,7 @@
 #
 # Authors:      Christopher Ariza
 #
-# Copyright:    (c) 2011 The music21 Project
+# Copyright:    Copyright © 2011-2012 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 '''This module defines the object model of Volume, covering all representation of amplitude, volume, velocity, and related parameters.  
@@ -14,7 +14,7 @@
  
 import unittest
 
-import music21
+from music21 import exceptions21
 from music21 import common
 from music21 import dynamics
 
@@ -25,7 +25,7 @@ environLocal = environment.Environment(_MOD)
 
 
 #-------------------------------------------------------------------------------
-class VolumeException(music21.Music21Exception):
+class VolumeException(exceptions21.Music21Exception):
     pass
 
 #-------------------------------------------------------------------------------
@@ -261,7 +261,7 @@ class Volume(object):
                 elif self.parent is not None:
                     dm = self.getDynamicContext() # dm may be None
                 else:
-                    environLocal.pd(['getRealized():', 
+                    environLocal.printDebug(['getRealized():', 
                     'useDynamicContext is True but no dynamic supplied or found in context'])
                 if dm is not None:
                     # double scalare (so range is between 0 and 1) and scale 
@@ -625,6 +625,7 @@ _DOC_ORDER = []
 
 
 if __name__ == "__main__":
+    import music21
     music21.mainTest(Test)
 
 

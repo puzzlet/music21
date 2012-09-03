@@ -6,7 +6,7 @@
 # Authors:      Michael Scott Cuthbert
 #               Christopher Ariza
 #
-# Copyright:    (c) 2009 The music21 Project
+# Copyright:    Copyright © 2009 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 
@@ -14,10 +14,6 @@ import math
 import doctest, unittest
 from decimal import Decimal
 import fractions
-
-import music21
-import music21.common
-
 
 
 
@@ -204,6 +200,7 @@ class Test(unittest.TestCase):
         unison = ET(0)
 
 if __name__ == "__main__":    
+    import music21
     music21.mainTest(Test)
 
 

@@ -5,8 +5,8 @@
 #
 # Authors:      Christopher Ariza
 #
-# Copyright:    (c) 2010-2012 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2010-2012 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 '''
 Functions for translating music21 objects and 
@@ -20,14 +20,14 @@ module's :func:`~music21.converter.parse` function.
 '''
 
 import copy
-import music21
 import unittest
 
 from music21.abc import base as abcModule
 
 from music21 import environment
-from music21 import stream
+from music21 import exceptions21
 from music21 import meter
+from music21 import stream
 
 _MOD = 'abc.translate.py'
 environLocal = environment.Environment(_MOD)
@@ -347,7 +347,8 @@ def abcToStreamScore(abcHandler, inputM21=None):
 def abcToStreamOpus(abcHandler, inputM21=None, number=None):
     '''Convert a multi-work stream into one or more complete works packed into a an Opus Stream. 
 
-    If a `number` argument is given, and a work is defined by that number, that work is returned. 
+    If a `number` argument is given, and a work is defined by 
+    that number, that work is returned. 
     '''
     from music21 import stream
 
@@ -444,7 +445,10 @@ def reBar(music21Part, inPlace=True):
             m1, m2 = music21Measure.splitAtQuarterLength(tsEnd)
             m2.timeSignature = None
             if lastTimeSignature.barDuration.quarterLength != m2.highestTime:
-                m2.timeSignature = m2.bestTimeSignature()
+                try:
+                    m2.timeSignature = m2.bestTimeSignature()
+                except stream.StreamException as e:
+                    raise ABCTranslateException("Problem with measure %d (%r): %s" % (music21Measure.number, music21Measure, e))
                 if measureIndex != len(allMeasures) - 1:
                     if allMeasures[measureIndex+1].timeSignature is None:
                         allMeasures[measureIndex+1].timeSignature = lastTimeSignature
@@ -464,7 +468,7 @@ def reBar(music21Part, inPlace=True):
     if not inPlace:
         return music21Part
 
-class ABCTranslateException(music21.Music21Exception):
+class ABCTranslateException(exceptions21.Music21Exception):
     pass
 
 
@@ -506,6 +510,9 @@ class Test(unittest.TestCase):
 
 
     def testGetMetaData(self):
+        '''
+        NB -- only title is checked. not meter or key
+        '''
 
         from music21 import abc
         from music21.abc import testFiles
@@ -811,6 +818,7 @@ class Test(unittest.TestCase):
 
 if __name__ == "__main__":
     # sys.arg test options will be used in mainTest()
+    import music21
     music21.mainTest(Test)
 
 

@@ -85,7 +85,6 @@ import unittest
 import doctest
 
 # music21 imports
-import music21
 from music21 import common
 from music21 import converter
 from music21 import stream
@@ -95,7 +94,7 @@ from music21 import features
 from music21 import harmony
 from music21 import clef
 from music21 import tempo
-from music21.demos.theoryAnalysis import theoryAnalyzer
+from music21.theoryAnalysis import theoryAnalyzer
 
 # webapps imports
 import commands
@@ -1226,6 +1225,7 @@ class Test(unittest.TestCase):
         self.assertEqual(ad['dataDict']['myNum']['data'], "23")
 
 if __name__ == '__main__':
+    import music21
     music21.mainTest(Test)
 
 #------------------------------------------------------------------------------

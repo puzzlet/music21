@@ -6,8 +6,8 @@
 # Authors:      Christopher Ariza
 #               Michael Scott Cuthbert
 #
-# Copyright:    (c) 2010-2012 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2010-2012 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 '''
 Functions for translating music21 objects and 
@@ -17,13 +17,12 @@ files from a file or URL to a :class:`~music21.stream.Stream`, use the music21
 converter module's :func:`~music21.converter.parse` function. 
 '''
 
-
-import music21
 import unittest
 
 from music21.musedata import base as museDataModule
 
 from music21 import environment
+from music21 import exceptions21
 _MOD = 'musedata.translate.py'
 environLocal = environment.Environment(_MOD)
 
@@ -31,7 +30,7 @@ environLocal = environment.Environment(_MOD)
 
 
 #-------------------------------------------------------------------------------
-class MuseDataTranslateException(Exception):
+class MuseDataTranslateException(exceptions21.Music21Exception):
     pass
 
 
@@ -69,7 +68,7 @@ def _musedataBeamToBeams(beamSymbol):
             direction='left'
         else:
             #MuseDataTranslateException('cannot interprete beams char: %s' % char)
-            environLocal.pd(['cannot interprete beams char:',  char])
+            environLocal.printDebug(['cannot interprete beams char:',  char])
             continue
         # will automatically increment number        
         # note that this does not permit defining 16th and not defining 8th
@@ -367,6 +366,7 @@ class Test(unittest.TestCase):
     def testBasic(self):
         from music21 import musedata
         from music21.musedata import testFiles
+        from music21.musicxml import translate as musicxmlTranslate
 
 
         mdw = musedata.MuseDataWork()
@@ -396,7 +396,7 @@ class Test(unittest.TestCase):
         self.assertEqual(len(s.parts[0].flat.notesAndRests), 291)
         self.assertEqual(len(s.parts[1].flat.notesAndRests), 293)
 
-        post = s.musicxml
+        raw = musicxmlTranslate.music21ObjectToMusicXML(s)
       
 
 
@@ -485,7 +485,7 @@ class Test(unittest.TestCase):
         from music21 import corpus
         s = corpus.parse('bwv1080', '16')
         self.assertEqual(len(s.parts[0].getKeySignatures()), 1)
-        self.assertEqual(str(s.parts[0].getKeySignatures()[0]), 'sharps -1, mode None')
+        self.assertEqual(str(s.parts[0].getKeySignatures()[0]), '<music21.key.KeySignature of 1 flat>')
 
         notes = s.parts[0].flat.notesAndRests
         self.assertEqual(str(notes[2].accidental), '<accidental sharp>')
@@ -511,7 +511,7 @@ class Test(unittest.TestCase):
         fpDir = os.path.join(common.getSourceFilePath(), 'musedata', 'testPrimitive', 'test01')
         s = converter.parse(fpDir)
         p = s.parts['Clarinet in A']
-        self.assertEqual(str(p.getElementsByClass('Measure')[0].keySignature), 'sharps 3, mode None')
+        self.assertEqual(str(p.getElementsByClass('Measure')[0].keySignature), '<music21.key.KeySignature of 3 sharps>')
         self.assertEqual(str(p.flat.notesAndRests[0]), '<music21.note.Note A>')
 
         #s.show()
@@ -548,7 +548,7 @@ class Test(unittest.TestCase):
         s = corpus.parse('k168', 1)
 
         self.assertEqual(len(s.parts), 4)
-        self.assertEqual(str(s.parts[0].flat.getElementsByClass('TimeSignature')[0]), '4/4')
+        self.assertEqual(str(s.parts[0].flat.getElementsByClass('TimeSignature')[0]), '<music21.meter.TimeSignature 4/4>')
     
         self.assertEqual([n.offset for n in s.parts[0].getElementsByClass('Measure')[0].notes], [0.0, 3.0, 3.5, 3.75])
 
@@ -561,7 +561,7 @@ class Test(unittest.TestCase):
         s = corpus.parse('k169', 3)
         
         self.assertEqual(len(s.parts), 4)
-        self.assertEqual(str(s.parts[0].flat.getElementsByClass('TimeSignature')[0]), '3/4')
+        self.assertEqual(str(s.parts[0].flat.getElementsByClass('TimeSignature')[0]), '<music21.meter.TimeSignature 3/4>')
     
         self.assertEqual([n.offset for n in s.parts[0].getElementsByClass('Measure')[0].notes], [0.0, 2.0])
 
@@ -618,6 +618,7 @@ _DOC_ORDER = [museDataWorkToStreamScore]
 
 if __name__ == "__main__":
     # sys.arg test options will be used in mainTest()
+    import music21
     music21.mainTest(Test)
 
 

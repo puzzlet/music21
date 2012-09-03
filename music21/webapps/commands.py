@@ -1,7 +1,6 @@
 import unittest, doctest
-
-import music21
 import copy
+
 from music21 import corpus
 from music21 import key
 from music21 import metadata
@@ -12,8 +11,7 @@ from music21 import stream
 from music21 import harmony
 from music21 import scale
 from music21 import clef
-
-from music21.demos.theoryAnalysis import theoryAnalyzer
+from music21.theoryAnalysis import theoryAnalyzer
 
 import random
 
@@ -36,8 +34,8 @@ def generateIntervals(numIntervals,kind = None, octaveSpacing = None):
     
     sc = stream.Stream()
     for i in range(numIntervals):        
-        loPs = pitch.convertNameToPs("C3")
-        hiPs = pitch.convertNameToPs("C#5")        
+        loPs = pitch.Pitch("C3").ps
+        hiPs = pitch.Pitch("C#5").ps        
         startPs = random.randrange(loPs,hiPs)
         startPitch = pitch.Pitch(ps=startPs)
         numHalfSteps = random.randrange(-19,20)
@@ -125,8 +123,8 @@ def generateChords(numChords,kind=''):
         return sc
     else:
         for i in range(numChords):
-            loPs = pitch.convertNameToPs("C4")
-            hiPs = pitch.convertNameToPs("C#5")        
+            loPs = pitch.Pitch("C4").ps
+            hiPs = pitch.Pitch("C#5").ps        
             startPs = random.randrange(loPs,hiPs)
             startPitch = pitch.Pitch(ps=startPs)
             startPitchName = startPitch.name
@@ -253,7 +251,8 @@ def determineDissonantIdentificationAccuracy(scoreIn, offsetList, keyStr=None):
     >>> chords[3].color #GREEN
     '#00cc33'
     '''
-
+    from music21 import roman
+    
     score = scoreIn.sliceByGreatestDivisor(addTies=True)
     vsList = theoryAnalyzer.getVerticalSlices(score)
     user = len(offsetList)
@@ -276,7 +275,7 @@ def determineDissonantIdentificationAccuracy(scoreIn, offsetList, keyStr=None):
                     vs.color = '#00cc33' # the user also recognizes this as a dissonant vertical slice GREEN
                     both+=1
                     c = vs.getChord()
-                    romanFigureList.append(music21.roman.romanNumeralFromChord(c, pieceKey).figure)
+                    romanFigureList.append(roman.romanNumeralFromChord(c, pieceKey).figure)
                 else:
                     vs.color = '#cc3300'  #the user did not recognize as a dissonant vertical slice RED
             else: #music21 did not recognize this as a dissonant vertical slice
@@ -339,10 +338,12 @@ def correctChordSymbols(worksheet, studentResponse):
     
     
     '''
+    from music21 import harmony
+    
     numCorrect = 0
-    chords1 = worksheet.flat.getElementsByClass(music21.harmony.ChordSymbol)
+    chords1 = worksheet.flat.getElementsByClass(harmony.ChordSymbol)
     totalNumChords = len(chords1)
-    chords2 = studentResponse.flat.getElementsByClass([music21.chord.Chord, music21.note.Note])
+    chords2 = studentResponse.flat.notes
     isCorrect = False
     for chord1, chord2 in zip(chords1, chords2):
         if chord1 not in studentResponse:
@@ -399,12 +400,14 @@ def checkLeadSheetPitches(worksheet, returnType=''):
 
     >>> answerKey = checkLeadSheetPitches( worksheet, returnType = 'answerkey' )
     >>> for x in answerKey.notes:
-    ...  x.pitches
-    [C3, E3, G3]
-    [G2, B2, D3, F3]
-    [B2, D#3, F#3]
-    [A2, C3, D3, F#3]
+    ...     [str(p) for p in x.pitches]
+    ['C3', 'E3', 'G3']
+    ['G2', 'B2', 'D3', 'F3']
+    ['B2', 'D#3', 'F#3']
+    ['A2', 'C3', 'D3', 'F#3']
     '''
+    from music21 import chord
+    from music21 import harmony
     #nicePiece = sc
     #incorrectPiece = sc
     
@@ -414,7 +417,7 @@ def checkLeadSheetPitches(worksheet, returnType=''):
     #chordLine = nicePiece.getElementsByClass(stream.Part)[1]
     #chordLine.show('text')
     #bassLine = nicePiece.part(2)
-    studentsAnswers = worksheet.flat.getElementsByClass(music21.chord.Chord)
+    studentsAnswers = worksheet.flat.getElementsByClass(chord.Chord)
     answerKey = worksheet.flat.getElementsByClass(harmony.ChordSymbol)
     
     correctedAssignment, numCorrect = correctChordSymbols(answerKey, studentsAnswers)
@@ -477,6 +480,7 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    import music21
     music21.mainTest(Test)
 
     

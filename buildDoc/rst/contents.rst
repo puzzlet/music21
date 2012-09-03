@@ -10,8 +10,10 @@ Music21 Documentation
 
    what
    quickStart
-   overviewNotes
+   usersGuide_02_notes
+   usersGuide_03_pitches
    overviewStreams
+   usersGuide_06_chords
    overviewFormats
    overviewPostTonal
    overviewMeters
@@ -54,21 +56,30 @@ Module Reference
    moduleAnalysisDiscrete
    moduleAnalysisMetrical
    moduleAnalysisPatel
+   moduleAnalysisReduction
+   moduleAnalysisSearch
    moduleAnalysisWindowed
    moduleArticulations
+   moduleAudioSearchBase
+   moduleAudioSearchRecording
+   moduleAudioSearchTranscriber
    moduleBar
    moduleBase
    moduleBeam
    moduleBrailleBasic
    moduleBrailleExamples
-   moduleBrailleTranslate
    moduleBrailleSegment
+   moduleBrailleText
+   moduleBrailleTranslate
+   moduleChord
    moduleClef
    moduleCommon
    moduleCompositionPhasing
+   moduleContour
    moduleConverter
    moduleCorpusBase
-   moduleChord
+   moduleCorpusChorales
+   moduleCounterpointSpecies
    moduleDuration
    moduleDynamics
    moduleEditorial
@@ -95,10 +106,14 @@ Module Reference
    moduleInterval
    moduleIntervalNetwork
    moduleKey
+   moduleLayout
+   moduleLilyLilyObjects
+   moduleLilyTranslate
    moduleMedren
-   moduleMeter
    moduleMetadata
+   moduleMeter
    moduleMidiBase
+   moduleMidiRealtime
    moduleMidiTranslate
    moduleMusedataBase
    moduleMusedataTranslate
@@ -120,10 +135,15 @@ Module Reference
    moduleSpanner
    moduleStream
    moduleTempo
+   moduleTestTest
+   moduleTestMultiprocessTest
    moduleText
+   moduleTheoryAnalysisTheoryAnalyzer
+   moduleTie
    moduleTinyNotation
-   moduleDemosTheoryAnalysisTheoryAnalyzer
+   moduleTrecentoCadencebook
    moduleTrecentoPolyphonicSnippet
+   moduleTrecentoTonality
    moduleVariant
    moduleVexflowBase
    moduleVoiceLeading

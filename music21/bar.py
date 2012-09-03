@@ -6,7 +6,7 @@
 # Authors:      Michael Scott Cuthbert
 #               Christopher Ariza
 #
-# Copyright:    (c) 2009-2011 The music21 Project
+# Copyright:    Copyright © 2009-2012 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 
@@ -15,11 +15,11 @@
 
 import unittest, doctest
 
-import music21
+from music21 import base
+from music21 import exceptions21
+
 from music21 import expressions
 from music21 import repeat
-from music21 import musicxml
-from music21.musicxml import translate as musicxmlTranslate
 
 from music21 import environment
 _MOD = 'bar.py'
@@ -28,7 +28,7 @@ environLocal = environment.Environment(_MOD)
 
 #-------------------------------------------------------------------------------
 
-class BarException(Exception):
+class BarException(exceptions21.Music21Exception):
     pass
 
 
@@ -86,7 +86,7 @@ def standardizeBarStyle(value):
  
 
 #-------------------------------------------------------------------------------
-class Barline(music21.Music21Object):
+class Barline(base.Music21Object):
     '''A representation of a barline. 
     Barlines are conventionally assigned to Measure objects 
     using the leftBarline and rightBarline attributes.
@@ -112,6 +112,8 @@ class Barline(music21.Music21Object):
     >>> bl4 = bar.Barline(style='final', location='right')
     >>> bl4
     <music21.bar.Barline style=final>
+    
+    Note that the barline style 'ticked' only is displayed correctly in finale and finale notepad.
     '''
     validStyles = barStyleDict.keys()
 
@@ -121,7 +123,7 @@ class Barline(music21.Music21Object):
     classSortOrder = -5 
 
     def __init__(self, style = None, location = None):
-        music21.Music21Object.__init__(self)
+        base.Music21Object.__init__(self)
 
         # this will raise an exception on error from property
         self.style = style
@@ -143,44 +145,22 @@ class Barline(music21.Music21Object):
     style = property(_getStyle, _setStyle, 
         doc = '''Get and set the Barline style property.
 
-        >>> b = Barline()
+        >>> from music21 import *
+        >>> b = bar.Barline()
+        >>> b.style = 'tick'
+        >>> b.style
+        'tick'
+        
+        Synonyms are given for some styles:
+        
+        >>> b.style = 'light-light'
+        >>> b.style
+        'double'
         ''')
     def _musicXMLBarStyle(self):
         return styleToMusicXMLBarStyle(self.style)
     
     musicXMLBarStyle = property(_musicXMLBarStyle)
-
-    def _getMX(self):
-        '''
-        >>> b = Barline('final')
-        >>> mxBarline = b.mx
-        >>> mxBarline.get('barStyle')
-        'light-heavy'
-
-        '''
-        mxBarline = musicxml.Barline()
-        mxBarline.set('barStyle', self.musicXMLBarStyle)
-        if self.location != None:
-            mxBarline.set('location', self.location)
-        return mxBarline
-
-    def _setMX(self, mxBarline):
-        '''Given an mxBarline, fille the necessary parameters
-
-        >>> from music21 import musicxml
-        >>> mxBarline = musicxml.Barline()
-        >>> mxBarline.set('barStyle', 'light-light')
-        >>> b = Barline()
-        >>> b.mx = mxBarline
-        >>> b.style
-        'double'
-        '''
-        self.style = mxBarline.get('barStyle')
-        location = mxBarline.get('location')
-        if location != None:
-            self.location = location
-
-    mx = property(_getMX, _setMX)    
 
 
 
@@ -338,20 +318,6 @@ class Repeat(repeat.RepeatMark, Barline):
         return expressions.TextExpression(value)
 
 
-    def _getMX(self):
-        return musicxmlTranslate.repeatToMx(self)
-
-    def _setMX(self, mxBarline):
-        # provide self to configure
-        musicxmlTranslate.mxToRepeat(mxBarline, self)
-
-    mx = property(_getMX, _setMX)    
-
-
-
-
-
-
 #-------------------------------------------------------------------------------
 class Test(unittest.TestCase):
     
@@ -383,6 +349,7 @@ class Test(unittest.TestCase):
 
 
 if __name__ == '__main__':
+    import music21
     music21.mainTest(Test)
 
 

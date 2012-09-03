@@ -1,12 +1,11 @@
 # -*- coding: utf-8 -*-
-#!/usr/bin/python
 #-------------------------------------------------------------------------------
 # Name:         examples.py
 # Purpose:      Transcribing popular music into braille music using music21.
 # Authors:      Jose Cabal-Ugaz
 #
-# Copyright:    (c) 2012 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2012 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 
 ur"""
@@ -168,8 +167,8 @@ Key Signature 2 flat(s) ⠣⠣
 Time Signature 3/8 ⠼⠉⠦
 <BLANKLINE>
 Measure 1 Left, Signature Grouping 1:
-sharps -2, mode major
-3/8
+<music21.key.KeySignature of 2 flats, mode major>
+<music21.meter.TimeSignature 3/8>
 ====
 Measure 1 Right, Note Grouping 1:
 <music21.clef.TrebleClef>
@@ -1059,8 +1058,8 @@ Key Signature 0 flat(s)
 Time Signature 4/4 ⠼⠙⠲
 <BLANKLINE>
 Measure 1 Left, Signature Grouping 1:
-sharps 0, mode major
-4/4
+<music21.key.KeySignature of no sharps or flats, mode major>
+<music21.meter.TimeSignature 4/4>
 ====
 Measure 1 Right, Note Grouping 1:
 <music21.clef.TrebleClef>
@@ -1381,7 +1380,6 @@ Barline final ⠣⠅
 ---end grand segment---
 """
 
-import music21
 import unittest
 
 from music21 import key
@@ -1406,6 +1404,7 @@ class Test(unittest.TestCase):
         pass
 
 if __name__ == "__main__":
+    import music21
     music21.mainTest(Test)
 
 #------------------------------------------------------------------------------

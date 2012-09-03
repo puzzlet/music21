@@ -6,8 +6,8 @@
 # Authors:      Jordi Bartolome
 #               Michael Scott Cuthbert
 #
-# Copyright:    (c) 2011 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2011 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 '''
 modules for audio searching that directly record from the microphone.
@@ -32,10 +32,9 @@ import time
 import unittest, doctest
 import wave
 
-import music21
 from music21 import common
 from music21 import environment
-_MOD = "chant.py"
+_MOD = "audiosearch.recording.py"
 environLocal = environment.Environment(_MOD)
 
 
@@ -140,6 +139,7 @@ _DOC_ORDER = []
 
 
 if __name__ == "__main__":
-    music21.mainTest(Test, 'noDocTest')
+    import music21
+    music21.mainTest(Test)
 #------------------------------------------------------------------------------
 # eof

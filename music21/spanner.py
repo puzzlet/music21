@@ -4,9 +4,10 @@
 # Purpose:      The Spanner base-class and subclasses
 #
 # Authors:      Christopher Ariza
+#               Michael Scott Cuthbert
 #
-# Copyright:    (c) 2010-2012 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2010-2012 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 '''
 A spanner is a music21 object that represents a connection usually between 
@@ -23,7 +24,8 @@ or in :ref:`moduleMeter` (a ritardando, for instance).
 import unittest
 import copy
 
-import music21
+from music21 import exceptions21
+from music21 import base
 from music21 import common
 from music21 import duration
 
@@ -33,14 +35,14 @@ environLocal = environment.Environment(_MOD)
 
 
 #-------------------------------------------------------------------------------
-class SpannerException(Exception):
+class SpannerException(exceptions21.Music21Exception):
     pass
-class SpannerBundleException(Exception):
+class SpannerBundleException(exceptions21.Music21Exception):
     pass
 
 
 #-------------------------------------------------------------------------------
-class Spanner(music21.Music21Object):
+class Spanner(base.Music21Object):
     '''
     Spanner objects live on Streams in the same manner as other Music21Objects, but represent and store connections between one or more other Music21Objects.
 
@@ -65,10 +67,14 @@ class Spanner(music21.Music21Object):
     >>> sp1.getComponents()
     [<music21.note.Note C>, <music21.note.Note D>, <music21.note.Note E>]
     
+    We can iterate over them:
+    
+    >>> for n in sp1:
+    ...    print(n),
+    <music21.note.Note C> <music21.note.Note D> <music21.note.Note E>
     
     Now we put the notes and the spanner into a Stream object.  Note that
     the convention is to put the spanner at the beginning:
-    
     
     >>> s = stream.Stream()
     >>> s.append([n1, n2, n3])
@@ -96,7 +102,7 @@ class Spanner(music21.Music21Object):
     <music21.spanner.CarterAccelerandoSign <music21.note.Note C><music21.note.Note D><music21.note.Note E>>
 
 
-    (3) we can get the spanner by looking at the list getSpannerSites() on any object.
+    (3) we can get the spanner by looking at the list getSpannerSites() on any object that has a spanner:
     
 
     >>> n2.getSpannerSites()
@@ -179,7 +185,7 @@ class Spanner(music21.Music21Object):
     isSpanner = True 
 
     def __init__(self, *arguments, **keywords):
-        music21.Music21Object.__init__(self)
+        base.Music21Object.__init__(self)
 
         self._cache = {} #common.DefaultHash()    
 
@@ -233,20 +239,29 @@ class Spanner(music21.Music21Object):
         return ''.join(msg)
 
     def __deepcopy__(self, memo=None):
-        '''This produces a new, independent object containing references to the same components. Components linked in this Spanner must be manually re-set, likely using the replaceComponent() method.
+        '''
+        This produces a new, independent object containing references to the same components. 
+        Components linked in this Spanner must be manually re-set, likely using the 
+        replaceComponent() method.
 
         >>> from music21 import *
         >>> n1 = note.Note('g')
         >>> n2 = note.Note('f#')
         >>> c1 = clef.AltoClef()
-        >>> c2 = clef.BassClef()
+
         >>> sp1 = spanner.Spanner(n1, n2, c1)
         >>> sp2 = copy.deepcopy(sp1)
         >>> len(sp2.getComponents())
         3
-        >>> sp2[0] == sp1[0]
+        >>> sp1 is sp2
+        False
+        >>> sp2[0] is sp1[0]
         True
-        >>> sp2[2] == sp1[2]
+        >>> sp2[2] is sp1[2]
+        True
+        >>> sp1[0] is n1
+        True
+        >>> sp2[0] is n1
         True
         '''
         new = self.__class__()
@@ -280,7 +295,6 @@ class Spanner(music21.Music21Object):
         new._idLastDeepCopyOf = id(self)
         return new
 
-
     #---------------------------------------------------------------------------
     # as _components is private Stream, unwrap/wrap methods need to override
     # Music21Object to get at these objects 
@@ -288,22 +302,22 @@ class Spanner(music21.Music21Object):
 
     def purgeOrphans(self):
         self._components.purgeOrphans()
-        music21.Music21Object.purgeOrphans(self)
+        base.Music21Object.purgeOrphans(self)
 
     def purgeLocations(self, rescanIsDead=False):
         # must override Music21Object to purge locations from the contained
         # Stream
         # base method to perform purge on the Sream
         self._components.purgeLocations(rescanIsDead=rescanIsDead)
-        music21.Music21Object.purgeLocations(self, rescanIsDead=rescanIsDead)
+        base.Music21Object.purgeLocations(self, rescanIsDead=rescanIsDead)
             
     def unwrapWeakref(self):
         '''Overridden method for unwrapping all Weakrefs.
         '''
         # call base method: this gets defined contexts and active site
-        music21.Music21Object.unwrapWeakref(self)
+        base.Music21Object.unwrapWeakref(self)
         # for contained objects that have weak refs
-        #environLocal.pd(['spanner unwrapping contained stream'])
+        #environLocal.printDebug(['spanner unwrapping contained stream'])
         self._components.unwrapWeakref()
         # this presently is not a weakref but in case of future changes
 
@@ -311,16 +325,16 @@ class Spanner(music21.Music21Object):
         '''Overridden method for unwrapping all Weakrefs.
         '''
         # call base method: this gets defined contexts and active site
-        music21.Music21Object.wrapWeakref(self)
+        base.Music21Object.wrapWeakref(self)
         self._components.wrapWeakref()
 
 
     def freezeIds(self):
-        music21.Music21Object.freezeIds(self)
+        base.Music21Object.freezeIds(self)
         self._components.freezeIds()
 
     def unfreezeIds(self):
-        music21.Music21Object.unfreezeIds(self)
+        base.Music21Object.unfreezeIds(self)
         self._components.unfreezeIds()
 
 
@@ -346,6 +360,9 @@ class Spanner(music21.Music21Object):
         '''
         # delegate to Stream subclass
         return self._components.__getitem__(key)
+
+    def __iter__(self):
+        return common.Iterator(self._components)
 
     def __len__(self):
         return len(self._components._elements)
@@ -808,7 +825,9 @@ class SpannerBundle(object):
 
 
     def getByComponent(self, component):
-        '''Given a spanner component (an object), return a bundle of all Spanner objects that have this object as a component. 
+        '''
+        Given a spanner component (an object), 
+        return a new SpannerBundle of all Spanner objects that have this object as a component. 
 
         >>> from music21 import *
         >>> n1 = note.Note()
@@ -914,9 +933,25 @@ class SpannerBundle(object):
 
 
     def setIdLocalByClass(self, className, maxId=6):
-        '''Automatically set id local values for all members of the provided class. This is necessary in cases where spanners are newly created in potentially overlapping boundaries and need to be tagged for MusicXML or other output. Note that, if some Spanners already have ids, they will be overwritten.
+        '''
+        (See `setIdLocals()` for an explanation of what an idLocal is...)
+        
+        Automatically set idLocal values for all members of the provided class. 
+        This is necessary in cases where spanners are newly created in 
+        potentially overlapping boundaries and need to be tagged for MusicXML 
+        or other output. Note that, if some Spanners already have idLocals, 
+        they will be overwritten.
 
-        The `maxId` parameter sets the largest number used in id ass
+        The `maxId` parameter sets the largest number that is available for this
+        class.  In MusicXML it is 6.
+
+        Currently this method just iterates over the spanners of this class
+        and counts the number from 1-6 and then recycles numbers.  It does
+        not check whether more than 6 overlapping spanners of the same type
+        exist, nor does it reset the count to 1 after all spanners of that
+        class have been closed.  The example below demonstrates that the
+        position of the contents of the spanner have no bearing on 
+        its idLocal (since we don't even put anything into the spanners).
 
         >>> from music21 import *
         >>> su1 = spanner.Slur()
@@ -931,7 +966,6 @@ class SpannerBundle(object):
         >>> sb.setIdLocalByClass('Slur')
         >>> [sp.idLocal for sp in sb.getByClass('Slur')]
         [1, 2]
-
         '''
         found = []
         # note that this over rides previous values
@@ -941,7 +975,19 @@ class SpannerBundle(object):
                 
 
     def setIdLocals(self):
-        '''Set all id locals for all classes in this SpannerBundle. This will assure that each class has a unique id local number. This is destructive: existing id local values will be lost.
+        '''
+        Utility method for outputting MusicXML (and potentially other formats) for spanners.
+        
+        Each Spanner type (slur, line, glissando, etc.) in MusicXML has a number assigned to it.
+        We call this number, `idLocal`.  idLocal is a number from 1 to 6.  This does not mean
+        that your piece can only have six slurs total!  But it does mean that within a single
+        part, only up to 6 slurs can happen simultaneously.  But as soon as a slur stops, its
+        idLocal can be reused.
+        
+        This method set all idLocals for all classes in this SpannerBundle. 
+        This will assure that each class has a unique idLocal number. 
+        
+        Calling this method is destructive: existing idLocal values will be lost.
 
         >>> from music21 import *
         >>> su1 = spanner.Slur()
@@ -1020,11 +1066,11 @@ class SpannerBundle(object):
 
         remove = None
         for i, ref in enumerate(self._pendingComponentAssignment):
-            #environLocal.pd(['calling freePendingComponentAssignment()', self._pendingComponentAssignment])
+            #environLocal.printDebug(['calling freePendingComponentAssignment()', self._pendingComponentAssignment])
             if componentCandidate.isClassOrSubclass([ref['className']]):
                 ref['spanner'].addComponents(componentCandidate)
                 remove = i      
-                #environLocal.pd(['freePendingComponentAssignment()', 'added component', ref['spanner']])
+                #environLocal.printDebug(['freePendingComponentAssignment()', 'added component', ref['spanner']])
                 break
         if remove is not None:
             self._pendingComponentAssignment.pop(remove)
@@ -1768,6 +1814,7 @@ class Test(unittest.TestCase):
 
     def testRepeatBracketC(self):
         from music21 import note, spanner, stream, bar
+        from music21.musicxml import translate as musicxmlTranslate
 
         p = stream.Part()
         m1 = stream.Measure()
@@ -1805,13 +1852,14 @@ class Test(unittest.TestCase):
         self.assertEqual(rb1.getDurationBySite(p).quarterLength, 8.0)
 
         #p.show()
-        raw = p.musicxml
+        raw = musicxmlTranslate.music21ObjectToMusicXML(p)
         self.assertEqual(raw.find("""<ending number="1" type="start"/>""")>1, True)    
         self.assertEqual(raw.find("""<ending number="2" type="stop"/>""")>1, True)    
         self.assertEqual(raw.find("""<ending number="2" type="start"/>""")>1, True)    
 
     def testRepeatBracketD(self):
         from music21 import note, spanner, stream, bar
+        from music21.musicxml import translate as musicxmlTranslate
 
         p = stream.Part()
         m1 = stream.Measure()
@@ -1897,20 +1945,19 @@ class Test(unittest.TestCase):
         # have the offsets of the start of each measure
         self.assertEqual(rb4.getOffsetsBySite(p), [32.0, 36.0, 40.0, 44.0])
         self.assertEqual(rb4.getDurationBySite(p).quarterLength, 16.0)
-
-        raw = p.musicxml
+        raw = musicxmlTranslate.music21ObjectToMusicXML(p)
         self.assertEqual(raw.find("""<ending number="1" type="start"/>""")>1, True)    
         self.assertEqual(raw.find("""<ending number="2" type="stop"/>""")>1, True)    
         self.assertEqual(raw.find("""<ending number="2" type="start"/>""")>1, True)    
         
         p1 = copy.deepcopy(p)
-        raw = p1.musicxml
+        raw = musicxmlTranslate.music21ObjectToMusicXML(p1)
         self.assertEqual(raw.find("""<ending number="1" type="start"/>""")>1, True)    
         self.assertEqual(raw.find("""<ending number="2" type="stop"/>""")>1, True)    
         self.assertEqual(raw.find("""<ending number="2" type="start"/>""")>1, True)    
 
         p2 = copy.deepcopy(p1)
-        raw = p2.musicxml
+        raw = musicxmlTranslate.music21ObjectToMusicXML(p2)
         self.assertEqual(raw.find("""<ending number="1" type="start"/>""")>1, True)    
         self.assertEqual(raw.find("""<ending number="2" type="stop"/>""")>1, True)    
         self.assertEqual(raw.find("""<ending number="2" type="start"/>""")>1, True)    
@@ -1984,6 +2031,8 @@ class Test(unittest.TestCase):
         objects through make measure calls. 
         '''
         from music21 import stream, note, spanner, chord
+        from music21.musicxml import translate as musicxmlTranslate
+
         s = stream.Stream()
         s.repeatAppend(chord.Chord(['c-3', 'g4']), 12)
         #s.repeatAppend(note.Note(), 12)
@@ -1991,7 +2040,7 @@ class Test(unittest.TestCase):
         n2 = s.notes[-1]
         sp1 = spanner.Ottava(n1, n2) # default is 8va
         s.append(sp1)
-        raw = s.musicxml
+        raw = musicxmlTranslate.music21ObjectToMusicXML(s)
         self.assertEqual(raw.count('octave-shift'), 2)
         self.assertEqual(raw.count('type="down"'), 1)
         #s.show()
@@ -2003,7 +2052,7 @@ class Test(unittest.TestCase):
         sp1 = spanner.Ottava(n1, n2, type='8vb')
         s.append(sp1)
         #s.show()
-        raw = s.musicxml
+        raw = musicxmlTranslate.music21ObjectToMusicXML(s)
         self.assertEqual(raw.count('octave-shift'), 2)
         self.assertEqual(raw.count('type="up"'), 1)
 
@@ -2014,7 +2063,7 @@ class Test(unittest.TestCase):
         sp1 = spanner.Ottava(n1, n2, type='15ma')
         s.append(sp1)
         #s.show()
-        raw = s.musicxml
+        raw = musicxmlTranslate.music21ObjectToMusicXML(s)
         self.assertEqual(raw.count('octave-shift'), 2)
         self.assertEqual(raw.count('type="down"'), 1)
 
@@ -2025,7 +2074,7 @@ class Test(unittest.TestCase):
         sp1 = spanner.Ottava(n1, n2, type='15mb')
         s.append(sp1)
         #s.show()
-        raw = s.musicxml
+        raw = musicxmlTranslate.music21ObjectToMusicXML(s)
         self.assertEqual(raw.count('octave-shift'), 2)
         self.assertEqual(raw.count('type="up"'), 1)
 
@@ -2035,13 +2084,14 @@ class Test(unittest.TestCase):
         '''Test a single note octave
         '''
         from music21 import stream, note, spanner
+        from music21.musicxml import translate as musicxmlTranslate
         s = stream.Stream()
         n = note.Note('c4')
         sp = spanner.Ottava(n)
         s.append(n)
         s.append(sp)
         #s.show()
-        raw = s.musicxml
+        raw = musicxmlTranslate.music21ObjectToMusicXML(s)
         self.assertEqual(raw.count('octave-shift'), 2)
         self.assertEqual(raw.count('type="down"'), 1)
 
@@ -2050,6 +2100,8 @@ class Test(unittest.TestCase):
 
     def testCrescendoA(self):
         from music21 import stream, note, spanner, chord, dynamics
+        from music21.musicxml import translate as musicxmlTranslate
+
         s = stream.Stream()
         #s.repeatAppend(chord.Chord(['c-3', 'g4']), 12)
         s.repeatAppend(note.Note(), 12)
@@ -2064,7 +2116,7 @@ class Test(unittest.TestCase):
         s.append(sp1)
         s.append(sp2)
         #s.show()
-        raw = s.musicxml
+        raw = musicxmlTranslate.music21ObjectToMusicXML(s)
         self.assertEqual(raw.count('<wedge'), 4)
 
         #self.assertEqual(raw.count('octave-shift'), 2)
@@ -2072,6 +2124,8 @@ class Test(unittest.TestCase):
 
     def testLineA(self):
         from music21 import stream, note, spanner, chord, dynamics
+        from music21.musicxml import translate as musicxmlTranslate
+
         s = stream.Stream()
         s.repeatAppend(note.Note(), 12)
         n1 = s.notes[0]
@@ -2083,12 +2137,14 @@ class Test(unittest.TestCase):
         s.append(sp1)
         s.append(sp2)
         #s.show()
-        raw = s.musicxml
+        raw = musicxmlTranslate.music21ObjectToMusicXML(s)
         self.assertEqual(raw.count('<bracket'), 4)
 
 
     def testLineB(self):
         from music21 import stream, note, spanner, chord, dynamics
+        from music21.musicxml import translate as musicxmlTranslate
+
         s = stream.Stream()
         s.repeatAppend(note.Note(), 12)
         n1 = s.notes[4]
@@ -2104,7 +2160,7 @@ class Test(unittest.TestCase):
         s.append(sp2)
 
         #s.show()
-        raw = s.musicxml
+        raw = musicxmlTranslate.music21ObjectToMusicXML(s)
         self.assertEqual(raw.count('<bracket'), 4)
         self.assertEqual(raw.count('line-end="arrow"'), 1)
         self.assertEqual(raw.count('line-end="none"'), 1)
@@ -2114,6 +2170,8 @@ class Test(unittest.TestCase):
 
     def testGlissandoA(self):
         from music21 import stream, note, spanner, chord, dynamics
+        from music21.musicxml import translate as musicxmlTranslate
+
         s = stream.Stream()
         s.repeatAppend(note.Note(), 12)
         for i, n in enumerate(s.notes):
@@ -2129,13 +2187,15 @@ class Test(unittest.TestCase):
         s.append(sp1)
         s.append(sp2)
         #s.show()
-        raw = s.musicxml
+        raw = musicxmlTranslate.music21ObjectToMusicXML(s)
         self.assertEqual(raw.count('<glissando'), 4)
         self.assertEqual(raw.count('line-type="dashed"'), 2)        
 
 
     def testGlissandoB(self):
         from music21 import stream, note, spanner, chord, dynamics
+        from music21.musicxml import translate as musicxmlTranslate
+
         s = stream.Stream()
         s.repeatAppend(note.Note(), 12)
         for i, n in enumerate(s.notes):
@@ -2150,7 +2210,7 @@ class Test(unittest.TestCase):
         s.append(sp1)
 
         #s.show()
-        raw = s.musicxml
+        raw = musicxmlTranslate.music21ObjectToMusicXML(s)
         self.assertEqual(raw.count('<glissando'), 2)
         self.assertEqual(raw.count('line-type="solid"'), 2)        
         self.assertEqual(raw.count('>gliss.<'), 1)        
@@ -2194,6 +2254,7 @@ _DOC_ORDER = [Spanner]
 
 if __name__ == "__main__":
     # sys.arg test options will be used in mainTest()
+    import music21
     music21.mainTest(Test)
 
 

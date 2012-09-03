@@ -1,16 +1,15 @@
-#!/usr/bin/python
+# -*- coding: utf-8 -*-
 #-------------------------------------------------------------------------------
 # Name:         rules.py
 # Purpose:      music21 class to define rules used in realization
 # Authors:      Jose Cabal-Ugaz
 #
-# Copyright:    (c) 2010 The music21 Project    
-# License:      LGPL
+# Copyright:    Copyright © 2010 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 
-import music21
 import unittest
-
+from music21 import exceptions21
 
 doc_forbidIncompletePossibilities = 'True by default. If True, :meth:`~music21.figuredBass.possibility.isIncomplete` is applied to all possibA, and all those possibilities for which the method returns False are retained.'
 doc_upperPartsMaxSemitoneSeparation = '''12 by default. A number, in semitones, representing the maxSemitoneSeparation argument provided to :meth:`~music21.figuredBass.possibility.upperPartsWithinLimit`. 
@@ -121,7 +120,7 @@ class Rules(object):
         return "<music21.figuredBass.rules Rules>" 
 
 
-class FiguredBassRulesException(music21.Music21Exception):
+class FiguredBassRulesException(exceptions21.Music21Exception):
     pass
 
 
@@ -133,6 +132,7 @@ class Test(unittest.TestCase):
         pass
 
 if __name__ == "__main__":
+    import music21
     music21.mainTest(Test)  
 
 #------------------------------------------------------------------------------

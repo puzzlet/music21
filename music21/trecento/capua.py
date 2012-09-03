@@ -1,6 +1,7 @@
+# -*- coding: utf-8 -*-
 import unittest
 
-import music21
+from music21 import stream
 from music21.trecento import cadencebook
 from music21 import note
 from music21.pitch import Accidental
@@ -712,7 +713,7 @@ def correctedMaj3():
     '''Find all cases where a Major 3rd moves inward to unison (within the next two or three notes, excluding rests)
     and see how often the PMFC editors correct it to Minor 3 and how often Capua gets it'''
 
-    lilyAll = lily.LilyString()
+    lilyAll = lily.lilyString.LilyString()
     
     ballataObj = cadencebook.BallataSheet()
     totalDict = {
@@ -781,7 +782,7 @@ def correctedMin6():
         }
 
     notesToCheck = 2 # allows Landini cadences, but note much more
-    lilyAll = lily.LilyString()
+    lilyAll = lily.lilyString.LilyString()
 
     for i in range(2, 459):  # all ballate   
 #    for i in range(232, 373):  # all of Landini ballate
@@ -934,7 +935,7 @@ def ruleFrequency():
 
 def showFourA():
     ballataObj = cadencebook.BallataSheet()
-    showStream = music21.stream.Stream()
+    showStream = stream.Stream()
     for i in range(2, 45): #459): # all ballate
         pieceObj = ballataObj.makeWork(i)  ## N.B. -- we now use Excel column numbers
 
@@ -1075,6 +1076,7 @@ class Test(unittest.TestCase):
 
 if (__name__ == "__main__"):
     #runPiece(267)
+    import music21
     music21.mainTest(Test) #, TestExternal)
     
 #    test()

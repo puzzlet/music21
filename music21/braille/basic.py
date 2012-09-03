@@ -4,11 +4,10 @@
 # Purpose:      music21 class which allows transcription of music21Object instances to braille.
 # Authors:      Jose Cabal-Ugaz
 #
-# Copyright:    (c) 2011 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2011 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 
-import music21
 import unittest
 
 from music21 import articulations
@@ -17,6 +16,7 @@ from music21 import chord
 from music21 import clef
 from music21 import dynamics
 from music21 import environment
+from music21 import exceptions21
 from music21 import expressions
 from music21 import interval
 from music21 import note
@@ -387,7 +387,7 @@ def noteToBraille(music21Note, showOctave = True, upperFirstInFingering = True):
     ⠩⠐⠱
     >>> print basic.noteToBraille(Ds4, showOctave = False)
     ⠩⠱
-    >>> Ds4.pitch.setAccidentalDisplay(False)
+    >>> Ds4.pitch.accidental.displayStatus = False
     >>> print basic.noteToBraille(Ds4)
     ⠐⠱
     >>> A2 = note.Note('A2')
@@ -1215,7 +1215,7 @@ def numberToBraille(sampleNumber, withNumberSign = True):
 
 #-------------------------------------------------------------------------------
 
-class BrailleBasicException(music21.Music21Exception):
+class BrailleBasicException(exceptions21.Music21Exception):
     pass
     
 #-------------------------------------------------------------------------------
@@ -1226,6 +1226,7 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    import music21
     music21.mainTest(Test)
 
 #------------------------------------------------------------------------------

@@ -7,7 +7,7 @@
 # Authors:      Michael Scott Cuthbert
 #               Christopher Ariza
 #
-# Copyright:    (c) 2009-2012 The music21 Project
+# Copyright:    Copyright © 2009-2012 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 '''
@@ -59,21 +59,12 @@ import pickle as pickleMod
 import StringIO # this module is not supported in python3
 # use io.StringIO  in python 3, avail in 2.6, not 2.5
 
-
-import music21
-
-from music21 import chord
-from music21 import clef
+from music21 import base
+from music21 import exceptions21
 from music21 import common
-from music21 import dynamics
-from music21 import expressions
 from music21 import humdrum
-from music21 import instrument
-from music21 import key
-from music21 import meter
 from music21 import midi
 from music21 import musicxml
-from music21 import note
 from music21 import stream
 from music21 import tinyNotation
 
@@ -99,16 +90,16 @@ environLocal = environment.Environment(_MOD)
 
 
 #-------------------------------------------------------------------------------
-class ArchiveManagerException(Exception):
+class ArchiveManagerException(exceptions21.Music21Exception):
     pass
 
-class PickleFilterException(Exception):
+class PickleFilterException(exceptions21.Music21Exception):
     pass
 
-class ConverterException(Exception):
+class ConverterException(exceptions21.Music21Exception):
     pass
 
-class ConverterFileException(Exception):
+class ConverterFileException(exceptions21.Music21Exception):
     pass
 
 
@@ -189,7 +180,7 @@ class ArchiveManager(object):
                 for subFp in mdd.getPaths():
                     component = f.open(subFp, 'rU')
                     lines = component.readlines()
-                    #environLocal.pd(['subFp', subFp, len(lines)]) 
+                    #environLocal.printDebug(['subFp', subFp, len(lines)]) 
                     post.append(''.join(lines))    
                     
                     # note: the following methods do not properly employ
@@ -222,6 +213,7 @@ class PickleFilter(object):
         '''
         self.fp = fp
         self.forceSource = forceSource
+        #environLocal.printDebug(['creating pickle filter'])
 
     def _getPickleFp(self, dir):
         if dir == None:
@@ -278,9 +270,9 @@ class StreamFreezer(object):
     >>> s.repeatAppend(note.Note('C4'), 8) 
     >>> temp = [s[n].transpose(n, inPlace=True) for n in range(len(s))]
 
-    >>> sf = StreamFreezer(s) # provide a Stream at init
+    >>> sf = converter.StreamFreezer(s) # provide a Stream at init
     >>> data = sf.writeStr(fmt='pickle') # pickle is default format; jsonpickle
-    >>> sfOut = StreamFreezer() 
+    >>> sfOut = converter.StreamFreezer() 
     >>> sfOut.openStr(data)
     >>> s = sfOut.stream
     >>> s.show('t')
@@ -323,7 +315,7 @@ class StreamFreezer(object):
         '''        
         # do all things necessary to setup the stream
         streamObj.setupSerializationScaffold()
-        storage = {'stream': streamObj, 'm21Version': music21.VERSION}
+        storage = {'stream': streamObj, 'm21Version': base.VERSION}
         return storage
 
     def _teardownStream(self, streamObj):
@@ -335,7 +327,7 @@ class StreamFreezer(object):
         '''Convert from storage dictionary to Stream.
         '''
         version = storage['m21Version']
-        if version != music21.VERSION:
+        if version != base.VERSION:
             environLocal.warn('this pickled file is out of data and my not function properly.')
         streamObj = storage['stream']
         streamObj.teardownSerializationScaffold()
@@ -363,9 +355,14 @@ class StreamFreezer(object):
             return 'jsonnative'
 
     def write(self, fmt=None, fp=None):
-        '''For a supplied Stream, write a serialized version.
         '''
-
+        For a supplied Stream, write a serialized version to
+        disk in either 'pickle' or 'jsonpickle' format and
+        return the filepath to the file.
+        
+        N.B. jsonpickle is the better format for transporting from
+        one computer to another, but still has some bugs.
+        '''
         fmt = self._parseWriteFmt(fmt)
 
         if fp is None:
@@ -617,8 +614,8 @@ class ConverterMusicXML(object):
         self.forceSource = forceSource
 
     #---------------------------------------------------------------------------
-    def getPartNames(self):
-        return self._mxScore.getPartNames()
+    def partIdToNameDict(self):
+        return self._mxScore.partIdToNameDict()
 
     def load(self):
         '''Load all parts from a MusicXML object representation.
@@ -644,7 +641,7 @@ class ConverterMusicXML(object):
         self._mxScore = c.score #  the mxScore object from the musicxml Document
         if len(self._mxScore) == 0:
             #print xmlString
-            raise ConverterException('score from xmlString (%s...) has no parts defined' % xmlString[:30])
+            raise ConverterException('score from xmlString (%s...) either has no parts defined or was incompletely parsed' % xmlString[:30])
         self.load()
 
     def parseFile(self, fp, number=None):
@@ -702,7 +699,7 @@ class ConverterMusicXML(object):
             arch = ArchiveManager(fpDst)
             if arch.isArchive():
                 c.read(arch.getData())
-            else: # its a file path
+            else: # its a file path or a raw musicxml string
                 c.open(fpDst)
 
         # get mxScore object from .score attribute
@@ -735,7 +732,8 @@ class ConverterMusicXML(object):
 
 #-------------------------------------------------------------------------------
 class ConverterMidi(object):
-    '''Simple class wrapper for parsing MIDI.
+    '''
+    Simple class wrapper for parsing MIDI.
     '''
 
     def __init__(self):
@@ -743,21 +741,25 @@ class ConverterMidi(object):
         self._stream = stream.Score()
 
     def parseData(self, strData, number=None):
-        '''Get MIDI data from a binary string representation.
         '''
+        Get MIDI data from a binary string representation.
+        '''
+        from music21.midi import translate as midiTranslate
         mf = midi.MidiFile()
         # do not need to call open or close on MidiFile instance
         mf.readstr(strData)
-        self._stream.midiFile = mf
+        midiTranslate.midiFileToStream(mf, self._stream)
 
     def parseFile(self, fp, number=None):
-        '''Get MIDI data from a file path.'''
-
+        '''
+        Get MIDI data from a file path.
+        '''
+        from music21.midi import translate as midiTranslate
         mf = midi.MidiFile()
         mf.open(fp)
         mf.read()
         mf.close()
-        self._stream.midiFile = mf
+        midiTranslate.midiFileToStream(mf, self._stream)
 
     def _getStream(self):
         return self._stream
@@ -964,7 +966,7 @@ class Converter(object):
             # presently, all text files are treated as roman text
             # may need to handle various text formats
             self._converter = ConverterRomanText()
-        elif format.lower() in ['romantext']:
+        elif format.lower() in ['romantext', 'rntxt']:
             self._converter = ConverterRomanText()
         else:
             raise ConverterException('no such format: %s' % format)
@@ -1006,18 +1008,26 @@ class Converter(object):
         if common.isListLike(dataStr):
             format = 'tinyNotation'
 
+#         if type(dataStr) == unicode:
+#             environLocal.printDebug(['Converter.parseData: got a unicode string'])
+
         # get from data in string if not specified        
         if format is None: # its a string
             dataStr = dataStr.lstrip()
-            if dataStr.startswith('<?xml') or dataStr.startswith('musicxml:'):
+            format, dataStr = self.formatFromHeader(dataStr)
+
+            if format is not None:
+                pass  
+            elif dataStr.startswith('<?xml') or dataStr.startswith('musicxml:'):
                 format = 'musicxml'
             elif dataStr.startswith('MThd') or dataStr.startswith('midi:'):
                 format = 'midi'
             elif dataStr.startswith('!!!') or dataStr.startswith('**') or dataStr.startswith('humdrum:'):
                 format = 'humdrum'
-            elif dataStr.startswith('tinynotation:'):
+            elif dataStr.lower().startswith('tinynotation:'):
                 format = 'tinyNotation'
-            # assume must define a meter and a key
+            
+            # assume MuseData must define a meter and a key
             elif 'WK#:' in dataStr and 'measure' in dataStr:
                 format = 'musedata'
             elif 'M:' in dataStr and 'K:' in dataStr:
@@ -1073,9 +1083,12 @@ class Converter(object):
         # this format check is here first to see if we can find the format
         # in the url; if forcing a format we do not need this
         # we do need the file extension to construct file path below
-        formatFromURL, ext = common.findFormatExtURL(url)
-        if formatFromURL is None: # cannot figure out what it is
-            raise ConverterException('cannot determine file format of url: %s' % url)
+        if format is None:
+            formatFromURL, ext = common.findFormatExtURL(url)
+            if formatFromURL is None: # cannot figure out what it is
+                raise ConverterException('cannot determine file format of url: %s' % url)
+        else:
+            ext = 'txt'
 
         dir = environLocal.getRootTempDir()
         dst = self._getDownloadFp(dir, ext, url)
@@ -1094,6 +1107,39 @@ class Converter(object):
             format = common.findFormatFile(fp) 
         self._setConverter(format, forceSource=False)
         self._converter.parseFile(fp, number=number)
+
+
+    validHeaderFormats = ['musicxml', 'midi', 'humdrum', 'tinyNotation', 'musedata', 'abc', 'romanText']
+
+    def formatFromHeader(self, dataStr):
+        '''
+        if dataStr begins with a text header such as  "tinyNotation:" then
+        return that format plus the dataStr with the head removed.
+        
+        Else, return (None, dataStr) where dataStr is the original untouched.
+        
+        Not case sensitive.
+        
+        >>> from music21 import *
+        >>> c = converter.Converter()
+        >>> c.formatFromHeader('tinynotation: C4 E2')
+        ('tinyNotation', 'C4 E2')
+        
+        >>> c.formatFromHeader('C4 E2')
+        (None, 'C4 E2')
+        '''
+        
+        dataStrStartLower = dataStr[:20].lower()
+            
+        format = None
+        for possibleFormat in self.validHeaderFormats:
+            if dataStrStartLower.startswith(possibleFormat.lower() + ':'):
+                format = possibleFormat
+                dataStr = dataStr[len(format) + 1:]
+                dataStr = dataStr.lstrip()
+                break
+        return (format, dataStr)
+            
 
 
     #---------------------------------------------------------------------------
@@ -1167,7 +1213,7 @@ def parse(value, *args, **keywords):
 
 
     >>> from music21 import *
-    >>> s = converter.parse(["E4 r f# g=lastG trip{b-8 a g} c", "3/4"])
+    >>> s = converter.parse("tinyNotation: 3/4 E4 r f# g=lastG trip{b-8 a g} c")
     >>> s.getElementsByClass(meter.TimeSignature)[0]
     <music21.meter.TimeSignature 3/4>
     
@@ -1202,10 +1248,13 @@ def parse(value, *args, **keywords):
     else:   
         format = None
 
-    if common.isListLike(value) and len(value) == 2 and value[1] == None and os.path.exists(value[0]):
-        ## comes from corpus.search
+    if (common.isListLike(value) and len(value) == 2 and 
+        value[1] == None and os.path.exists(value[0])):
+        # comes from corpus.search
         return parseFile(value[0], format=format)
-    elif common.isListLike(value) and len(value) == 2 and isinstance(value[1], int) and os.path.exists(value[0]):
+    elif (common.isListLike(value) and len(value) == 2 and 
+        isinstance(value[1], int) and os.path.exists(value[0])):
+        # corpus or other file with movement number
         return parseFile(value[0], format=format).getScoreByNumber(value[1])
     elif common.isListLike(value) or len(args) > 0: # tiny notation list
         if len(args) > 0: # add additional args to a list
@@ -1376,7 +1425,7 @@ class Test(unittest.TestCase):
         pass
 
     def testCopyAndDeepcopy(self):
-        '''Test copyinng all objects defined in this module
+        '''Test copying all objects defined in this module
         '''
         import sys, types, copy
         for part in sys.modules[self.__module__].__dict__.keys():
@@ -1396,6 +1445,8 @@ class Test(unittest.TestCase):
         from music21.musicxml import testPrimitive
         from music21.musicxml import testFiles
         from music21 import corpus
+        from music21 import dynamics
+        from music21 import note
 
 
         mxString = testPrimitive.pitches01a
@@ -1480,7 +1531,7 @@ class Test(unittest.TestCase):
 
 
     def testConversionMXChords(self):
-
+        from music21 import chord
         from music21.musicxml import testPrimitive
 
         mxString = testPrimitive.chordsThreeNotesDuration21c
@@ -1527,7 +1578,7 @@ class Test(unittest.TestCase):
 
 
     def testConversionMXClefPrimitive(self):
-
+        from music21 import clef
         from music21.musicxml import testPrimitive
         mxString = testPrimitive.clefs12a
         a = parse(mxString)
@@ -1539,7 +1590,7 @@ class Test(unittest.TestCase):
 
     def testConversionMXClefTimeCorpus(self):
     
-        from music21 import corpus
+        from music21 import corpus, clef, meter
         a = corpus.parse('luca')
 
         # there should be only one clef in each part
@@ -1561,7 +1612,7 @@ class Test(unittest.TestCase):
         ts = a.parts[1].flat.getElementsByClass(meter.TimeSignature)
         self.assertEqual(len(ts), 4)
 
-        from music21 import corpus
+
         a = corpus.parse('mozart/k156/movement4')
 
         # violin part
@@ -1586,7 +1637,10 @@ class Test(unittest.TestCase):
 
 
     def testConversionMXArticulations(self):
+        from music21 import note
         from music21.musicxml import testPrimitive
+        from music21.musicxml import translate as musicxmlTranslate
+        
         mxString = testPrimitive.articulations01
         a = parse(mxString)
         part = a.parts[0]
@@ -1603,10 +1657,11 @@ class Test(unittest.TestCase):
         self.assertEqual(post, match)
 
         # try to go the other way
-        post = a.musicxml
+        post = musicxmlTranslate.music21ObjectToMusicXML(a)
         #a.show()        
 
     def testConversionMXKey(self):
+        from music21 import key
         from music21.musicxml import testPrimitive
         mxString = testPrimitive.keySignatures13a
         a = parse(mxString)
@@ -1660,7 +1715,7 @@ class Test(unittest.TestCase):
     def testConversionMXTies(self):
         
         from music21.musicxml import testPrimitive
-        from music21 import stream, layout
+        from music21 import stream, layout, clef
 
         a = parse(testPrimitive.multiMeasureTies)
         #a.show()
@@ -1728,7 +1783,7 @@ class Test(unittest.TestCase):
 
 
     def testConversionMidiNotes(self):
-        from music21 import common, meter, key
+        from music21 import common, meter, key, chord, note
 
         fp = os.path.join(common.getSourceFilePath(), 'midi', 'testPrimitive',  'test01.mid')
         # a simple file created in athenacl
@@ -1947,6 +2002,7 @@ _DOC_ORDER = [parse, parseFile, parseData, parseURL, freeze, unfreeze, freezeStr
 
 if __name__ == "__main__":
     # sys.arg test options will be used in mainTest()
+    import music21
     music21.mainTest(Test)
 
 

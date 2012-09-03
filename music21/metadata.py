@@ -6,8 +6,8 @@
 # Authors:      Christopher Ariza
 #               Michael Scott Cuthbert
 #
-# Copyright:    (c) 2010, 2012 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2010, 2012 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 '''Classes and functions for creating and processing metadata associated with scores, works, and fragments, such as titles, movements, authors, publishers, and regions.
 
@@ -36,8 +36,9 @@ import os
 import inspect
 import re
 
-import music21
+from music21 import base
 from music21 import common
+from music21 import exceptions21
 from music21 import musicxml
 from music21 import text
 
@@ -49,7 +50,7 @@ environLocal = environment.Environment(_MOD)
 
 
 #-------------------------------------------------------------------------------
-class MetadataException(Exception):
+class MetadataException(exceptions21.Music21Exception):
     pass
 
 
@@ -240,7 +241,7 @@ def workIdToAbbreviation(value):
 
 
 #-------------------------------------------------------------------------------
-class Text(music21.JSONSerializer):
+class Text(base.JSONSerializer):
     '''One unit of text data: a title, a name, or some other text data. Store the string and a language name or code. This object can be used and/or subclassed for a variety for of text storage.
     '''
     def __init__(self, data='', language=None):
@@ -251,6 +252,7 @@ class Text(music21.JSONSerializer):
         >>> str(td)
         'concerto in d'
         '''
+        base.JSONSerializer.__init__(self)
         if isinstance(data, Text): # if this is a Text obj, get data
             # accessing private attributes here; not desirable
             self._data = data._data
@@ -311,7 +313,7 @@ class Text(music21.JSONSerializer):
 
 
 #-------------------------------------------------------------------------------
-class Date(music21.JSONSerializer):
+class Date(base.JSONSerializer):
     '''A single date value, specified by year, month, day, hour, minute, and second. Note that this class has been created, instead of using Python's datetime, to provide greater flexibility for processing unconventional dates, ancient dates, dates with error, and date ranges. 
 
     The :attr:`~music21.metadata.Date.datetime` property can be used to retrieve a datetime object when necessary.
@@ -335,6 +337,7 @@ class Date(music21.JSONSerializer):
         'uncertain'
 
         '''
+        base.JSONSerializer.__init__(self)
         self.year = None
         self.month = None
         self.day = None
@@ -619,7 +622,7 @@ class Date(music21.JSONSerializer):
 
 
 #-------------------------------------------------------------------------------
-class DateSingle(music21.JSONSerializer):
+class DateSingle(base.JSONSerializer):
     '''Store a date, either as certain, approximate, or uncertain relevance.
 
     The relevance attribute is limited within each DateSingle subclass depending on 
@@ -640,6 +643,7 @@ class DateSingle(music21.JSONSerializer):
         >>> str(dd)
         '1805/03/12'
         '''
+        base.JSONSerializer.__init__(self)
         self._data = [] # store a list of one or more Date objects
         self._relevance = None # managed by property
 
@@ -841,7 +845,7 @@ class DateSelection(DateSingle):
 
 
 #-------------------------------------------------------------------------------
-class Contributor(music21.JSONSerializer):
+class Contributor(base.JSONSerializer):
     '''A person that contributed to a work. Can be a composer, lyricist, 
     arranger, or other type of contributor. 
     In MusicXML, these are "creator" elements.  
@@ -860,6 +864,7 @@ class Contributor(music21.JSONSerializer):
         'contributor'
 
         '''
+        base.JSONSerializer.__init__(self)
         if 'role' in keywords.keys():
             # stored in self._role
             self.role = keywords['role'] # validated with property
@@ -929,7 +934,6 @@ class Contributor(music21.JSONSerializer):
         'Chopin, Fryderyk'
         >>> td.names
         ['Chopin, Fryderyk', 'Chopin, Frederick']
-
         ''')
 
     def _getNames(self):
@@ -949,7 +953,9 @@ class Contributor(music21.JSONSerializer):
         ''')
 
     def age(self):
-        '''Calculate the age at death of the Contributor, returning a datetime.timedelta object.
+        '''
+        Calculate the age at death of the Contributor, 
+        returning a datetime.timedelta object.
 
         >>> from music21 import *
         >>> a = metadata.Contributor(name='Beethoven, Ludwig van', role='composer', birth='1770/12/17', death='1827/3/26')
@@ -969,7 +975,6 @@ class Contributor(music21.JSONSerializer):
         else:
             return None
 
-
     #---------------------------------------------------------------------------
     # overridden methods for json processing 
 
@@ -985,11 +990,7 @@ class Contributor(music21.JSONSerializer):
         else:
             raise MetadataException('cannot instantiate an object from id string: %s' % idStr)
 
-
-
-
     #---------------------------------------------------------------------------
-
     def _getMX(self):
         '''Return a mxCreator object based on this object. 
 
@@ -1123,7 +1124,7 @@ class Copyright(object):
 #     'ocy' : 'countryOfComposition',
 #     'opc' : 'localeOfComposition', # origin in abc
 
-class Metadata(music21.Music21Object):
+class Metadata(base.Music21Object):
     '''Metadata represent data for a work or fragment, 
     including title, composer, dates, and other relevant information.
 
@@ -1154,7 +1155,7 @@ class Metadata(music21.Music21Object):
         >>> md.title
         'Rhapsody in Blue'
         '''
-        music21.Music21Object.__init__(self)
+        base.Music21Object.__init__(self)
 
         # a list of Contributor objects
         # there can be more than one composer, or any other combination
@@ -1705,18 +1706,6 @@ class Metadata(music21.Music21Object):
 
     mx = property(_getMX, _setMX)    
 
-
-#     def _getMusicXML(self):
-#         '''Provide a complete MusicXML representation. 
-#         '''
-#         mxScore = self._getMX()
-#         return mxScore.xmlStr()
-# 
-#     musicxml = property(_getMusicXML,
-#         doc = '''Return a complete MusicXML reprsentatoin as a string. 
-#         ''')
-# 
-
 #-------------------------------------------------------------------------------
 class RichMetadata(Metadata):
     '''RichMetadata adds to Metadata information about the contents of the Score 
@@ -1844,7 +1833,7 @@ class RichMetadata(Metadata):
         if len(tsStream) > 0:
             # just store the string representation  
             # re-instantiating TimeSignature objects is expensive
-            self.timeSignatureFirst = str(tsStream[0])
+            self.timeSignatureFirst = tsStream[0].ratioString
         
         # this presently does not work properly b/c ts comparisons are not
         # built-in; need to add __eq__ methods to MeterTerminal
@@ -1881,23 +1870,33 @@ class RichMetadata(Metadata):
 
 
 #-------------------------------------------------------------------------------
-class MetadataBundle(music21.JSONSerializer):
-    '''An object that provides access to, searches within, and storage and loading of multiple Metadata objects.
-
-    Additionally, multiple MetadataBundles can be merged for additional processing
+class MetadataBundle(base.JSONSerializer):
     '''
+    An object that provides access to, searches within, 
+    and stores and loads multiple Metadata objects.
+
+    Additionally, multiple MetadataBundles can be merged for 
+    additional processing.  See corpus.metadata.metadataCache
+    for the module that builds these.
+    '''
+    _DOC_ATTR = {
+        'storage': 'A dictionary containing the Metadata objects that have been parsed.  Keys are strings',
+        'name': 'The name of the type of MetadataBundle being made, can be "default", "corpus", or "virtual".  Possibly also "local".'
+        }
+    
     def __init__(self, name='default'):
+        base.JSONSerializer.__init__(self)
 
         # all keys are strings, all value are Metadata
         # there is apparently a performance boost for using all-string keys
-        self._storage = {}
+        self.storage = {}
         
-        # name is used to write storage file and acess this bundle from multiple # bundles
-        self._name = name
+        # name is used to write storage file and access this bundle from multiple # bundles
+        self.name = name
 
         # need to store local abs file path of each component
         # this will need to be refreshed after loading json data
-        # keys are the same for self._storage
+        # keys are the same for self.storage
         self._accessPaths = {}
 
     #---------------------------------------------------------------------------
@@ -1906,7 +1905,7 @@ class MetadataBundle(music21.JSONSerializer):
     def jsonAttributes(self):
         '''Define all attributes of this object that should be JSON serialized for storage and re-instantiation. Attributes that name basic Python objects or :class:`~music21.base.JSONSerializer` subclasses, or dictionaries or lists that contain Python objects or :class:`~music21.base.JSONSerializer` subclasses, can be provided.
         '''
-        return ['_storage', '_name']
+        return ['storage', 'name']
 
     def jsonComponentFactory(self, idStr):
         if '.Metadata' in idStr:
@@ -1948,16 +1947,25 @@ class MetadataBundle(music21.JSONSerializer):
     
     
 
-    def addFromPaths(self, pathList):
+    def addFromPaths(self, pathList, printDebugAfter = 0):
         '''Parse and store metadata from numerous files.
 
-        If any files cannot be loaded, they file paths will be collected in a list. 
+        If any files cannot be loaded, their file paths 
+        will be collected in a list that is returned
+
+        Returns a list of file paths with errors and stores
+        the extracted metadata in `self.storage`.
+        
+        if `printDebugAfter` is set to an int, say 100, then
+        after every 100 files are parsed a message will be
+        printed to stderr giving an update on progress.
+
 
         >>> from music21 import *
         >>> mb = metadata.MetadataBundle()
         >>> mb.addFromPaths(corpus.getWorkList('bwv66.6'))
         []
-        >>> len(mb._storage)
+        >>> len(mb.storage)
         1
         '''
         import gc # get a garbage collector
@@ -1965,8 +1973,13 @@ class MetadataBundle(music21.JSONSerializer):
 
         # converter imports modules that import metadata
         from music21 import converter
+        numberConverted = 0
         for fp in pathList:
             environLocal.printDebug(['updateMetadataCache: examining:', fp])
+            if printDebugAfter > 0 and numberConverted % printDebugAfter == 0 and numberConverted > 0:
+                environLocal.warn("updated %d files, %d to go; total errors: %d" %
+                                  (numberConverted, len(pathList) - numberConverted, len(fpError)))
+            numberConverted += 1
             cp = self.corpusPathToKey(fp)
             try:
                 post = converter.parse(fp, forceSource=True)
@@ -1991,7 +2004,7 @@ class MetadataBundle(music21.JSONSerializer):
                         # update path to include work number
                         cp = self.corpusPathToKey(fp, number=md.number)
                         environLocal.printDebug(['addFromPaths: storing:', cp])
-                        self._storage[cp] = rmd
+                        self.storage[cp] = rmd
                     del s # for memory conservation
             else:
                 md = post.metadata
@@ -2001,7 +2014,7 @@ class MetadataBundle(music21.JSONSerializer):
                 rmd.merge(md)
                 rmd.update(post) # update based on Stream
                 environLocal.printDebug(['updateMetadataCache: storing:', cp])
-                self._storage[cp] = rmd
+                self.storage[cp] = rmd
     
             # explicitly delete the imported object for memory conservation
             del post
@@ -2010,16 +2023,16 @@ class MetadataBundle(music21.JSONSerializer):
         return fpError
 
     def _getFilePath(self):
-        if self._name in ['virtual', 'core']:
+        if self.name in ['virtual', 'core']:
             fp = os.path.join(common.getMetadataCacheFilePath(), 
-                self._name + '.json')
-        elif self._name == 'local':
+                self.name + '.json')
+        elif self.name == 'local':
             # write in temporary dir
             fp = os.path.join(environLocal.getRootTempDir(), 
-                self._name + '.json')
+                self.name + '.json')
         else:
             raise MetadataException('unknown metadata name passed: %s' % 
-                self._name)
+                self.name)
         return fp
 
 
@@ -2032,17 +2045,17 @@ class MetadataBundle(music21.JSONSerializer):
 
 
     def read(self, fp=None):
-        '''Load self from the file path suggested by the _name of this MetadataBundle
+        '''Load self from the file path suggested by the name of this MetadataBundle
         '''
         t = common.Timer()
         t.start()
         if fp is None:
             fp = self._getFilePath()
         if not os.path.exists(fp):
-            environLocal.warn('no metadata found for: %s; try building cache with corpus.cacheMetadata("%s")' % (self._name, self._name))
+            environLocal.warn('no metadata found for: %s; try building cache with corpus.cacheMetadata("%s")' % (self.name, self.name))
             return
         self.jsonRead(fp)
-        environLocal.printDebug(['MetadataBundle: loading time:', self._name, t, 'md items:', len(self._storage)])
+        environLocal.printDebug(['MetadataBundle: loading time:', self.name, t, 'md items:', len(self.storage)])
 
 
     def updateAccessPaths(self, pathList):
@@ -2063,7 +2076,7 @@ class MetadataBundle(music21.JSONSerializer):
         # always clear first
         self._accessPaths = {}
         # create a copy to manipulate
-        keyOptions = self._storage.keys()
+        keyOptions = self.storage.keys()
 
         for fp in pathList:
     
@@ -2076,7 +2089,7 @@ class MetadataBundle(music21.JSONSerializer):
     
             match = False
             try:
-                md = self._storage[cp]
+                md = self.storage[cp]
                 self._accessPaths[cp] = fp
                 match = True
             except KeyError:
@@ -2109,11 +2122,11 @@ class MetadataBundle(music21.JSONSerializer):
         0
         >>> post = mb.search('cicon', 'composer', extList=['.xml'])
         >>> len(post)
-        1
+        11
         '''
         post = []
-        for key in self._storage.keys():
-            md = self._storage[key]
+        for key in self.storage.keys():
+            md = self.storage[key]
             match, fieldPost = md.search(query, field)
             if match:
                 # returns a pair of file path, work number
@@ -2121,18 +2134,21 @@ class MetadataBundle(music21.JSONSerializer):
                     number = int(md.number)
                 else:
                     number = md.number
-                result = (self._accessPaths[key], number)
-                include = False
-                if extList != None:
-                    for ext in extList:
-                        if result[0].endswith(ext) or\
-                            (ext.endswith('xml') and (result[0].endswith('mxl') or result[0].endswith('mx'))):
-                            include = True
-                            break
-                else:
-                    include = True
-                if include and result not in post:
-                    post.append(result)  
+                try:
+                    result = (self._accessPaths[key], number)
+                    include = False
+                    if extList != None:
+                        for ext in extList:
+                            if result[0].endswith(ext) or\
+                                (ext.endswith('xml') and (result[0].endswith('mxl') or result[0].endswith('mx'))):
+                                include = True
+                                break
+                    else:
+                        include = True
+                    if include and result not in post:
+                        post.append(result)  
+                except KeyError:
+                    pass # in metadata cache, but no longer in filesystem
         return post
 
 
@@ -2351,7 +2367,7 @@ class Test(unittest.TestCase):
         # update rmd with stream
         rmd.update(s)
 
-        self.assertEqual(rmd.keySignatureFirst, 'sharps -1, mode major')
+        self.assertEqual(rmd.keySignatureFirst, '<music21.key.KeySignature of 1 flat, mode major>')
 
         self.assertEqual(str(rmd.timeSignatureFirst), '2/4')
 
@@ -2361,7 +2377,7 @@ class Test(unittest.TestCase):
         self.assertEqual(rmdNew.composer, 'Johannes Ciconia')
 
         self.assertEqual(str(rmdNew.timeSignatureFirst), '2/4')
-        self.assertEqual(str(rmdNew.keySignatureFirst), 'sharps -1, mode major')
+        self.assertEqual(str(rmdNew.keySignatureFirst), '<music21.key.KeySignature of 1 flat, mode major>')
 
 #         self.assertEqual(rmd.pitchLowest, 55)
 #         self.assertEqual(rmd.pitchHighest, 65)
@@ -2373,12 +2389,12 @@ class Test(unittest.TestCase):
         rmd.merge(s.metadata)
 
         rmd.update(s)
-        self.assertEqual(str(rmd.keySignatureFirst), 'sharps 3, mode minor')
+        self.assertEqual(str(rmd.keySignatureFirst), '<music21.key.KeySignature of 3 sharps, mode minor>')
         self.assertEqual(str(rmd.timeSignatureFirst), '4/4')
 
         rmdNew.json = rmd.json
         self.assertEqual(str(rmdNew.timeSignatureFirst), '4/4')
-        self.assertEqual(str(rmdNew.keySignatureFirst), 'sharps 3, mode minor')
+        self.assertEqual(str(rmdNew.keySignatureFirst), '<music21.key.KeySignature of 3 sharps, mode minor>')
 
 
         # test that work id values are copied
@@ -2405,7 +2421,7 @@ class Test(unittest.TestCase):
 
 
     def testRichMetadataA(self):
-        from music21 import corpus, metadata
+        from music21 import base, corpus, metadata
 
         s = corpus.parse('bwv66.6')
         rmd = metadata.RichMetadata()
@@ -2414,16 +2430,17 @@ class Test(unittest.TestCase):
 
         self.assertEqual(rmd.noteCount, 165)
         self.assertEqual(rmd.quarterLength, 36.0)
-
-        self.assertEqual(rmd.json, '{"__attr__": {"_urls": [], "quarterLength": 36.0, "noteCount": 165, "_contributors": [], "timeSignatureFirst": "4/4", "keySignatureFirst": "sharps 3, mode minor", "_workIds": {"movementName": {"__attr__": {"_data": "bwv66.6.mxl"}, "__class__": "<class \'music21.metadata.Text\'>"}}}, "__version__": [1, 0, 0], "__class__": "<class \'music21.metadata.RichMetadata\'>"}')
+        versionRepr = repr(list(base.VERSION))
+        self.assertEqual(rmd.json, '{"__attr__": {"_urls": [], "quarterLength": 36.0, "noteCount": 165, "_contributors": [], "timeSignatureFirst": "4/4", "keySignatureFirst": "<music21.key.KeySignature of 3 sharps, mode minor>", "_workIds": {"movementName": {"__attr__": {"_data": "bwv66.6.mxl"}, "__class__": "<class \'music21.metadata.Text\'>"}}}, "__version__": ' + versionRepr + ', "__class__": "<class \'music21.metadata.RichMetadata\'>"}')
 
 
 #-------------------------------------------------------------------------------
-_DOC_ORDER = [Text, Date, 
+_DOC_ORDER = [Metadata, Text, Date, 
             DateSingle, DateRelative, DateBetween, DateSelection, 
-            Contributor, Metadata]
+            Contributor]
 
 if __name__ == "__main__":
+    import music21
     music21.mainTest(Test)
 
 

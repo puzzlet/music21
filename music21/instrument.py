@@ -8,7 +8,7 @@
 #               Michael Scott Cuthbert
 #               Jose Cabal-Ugaz
 #
-# Copyright:    (c) 2009-12 The music21 Project
+# Copyright:    Copyright © 2009-2012 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 
@@ -24,13 +24,12 @@ ensemble.py module.
 import unittest, doctest
 import sys
 
-import music21
-from music21 import musicxml
+from music21 import base
+from music21 import exceptions21
 from music21 import common
 from music21 import defaults
-from music21 import pitch
 from music21 import interval
-from music21.musicxml import translate as musicxmlTranslate
+from music21 import pitch
 
 from music21 import environment
 _MOD = "instrument.py"
@@ -44,10 +43,10 @@ environLocal = environment.Environment(_MOD)
 #    '''
 #    eval(name + "()")
 
-class InstrumentException(music21.Music21Exception):
+class InstrumentException(exceptions21.Music21Exception):
     pass
 
-class Instrument(music21.Music21Object):
+class Instrument(base.Music21Object):
     '''
     Base class for all musical instruments.  Designed
     for subclassing, though usually a more specific
@@ -58,7 +57,7 @@ class Instrument(music21.Music21Object):
     classSortOrder = 1
 
     def __init__(self):
-        music21.Music21Object.__init__(self)
+        base.Music21Object.__init__(self)
 
         self.partId = None
         self.partName = None
@@ -175,24 +174,6 @@ class Instrument(music21.Music21Object):
                     return ch
             return 0
             #raise InstrumentException("we are out of midi channels and this was not already detected PROGRAM BUG!")
-            
-
-
-    #---------------------------------------------------------------------------
-#     def _getMX(self):
-#         '''Return a mxScorePart based on this instrument.
-#         '''
-#         return musicxmlTranslate.instrumentToMx(self)
-# 
-#     def _setMX(self, mxScorePart):
-#         '''
-#         provide a score part object
-#         '''
-#         # load an instrument from a ScorePart into self
-#         musicxmlTranslate.mxToInstrument(mxScorePart, self)
-# 
-#     mx = property(_getMX, _setMX)
-
 
 
 #-------------------------------------------------------------------------------
@@ -350,31 +331,24 @@ class StringInstrument(Instrument):
             
             >>> from music21 import *
             >>> vln1 = instrument.Violin()
-            >>> vln1.stringPitches
-            [G3, D4, A4, E5]
-            
+            >>> [str(p) for p in vln1.stringPitches]
+            ['G3', 'D4', 'A4', 'E5']
             
             instrument.stringPitches are full pitch objects, not just names:
 
-
             >>> [x.octave for x in vln1.stringPitches]
             [3, 4, 4, 5]
-            
             
             Scordatura for Scelsi's violin concerto *Anahit*.
             (N.B. that string to pitch conversion is happening automatically)
             
             
             >>> vln1.stringPitches = ["G3","G4","B4","D4"]
-            >>> vln1.stringPitches
-            [G3, G4, B4, D4]
-            
             
             (`[*]In some tuning methods such as reentrant tuning on the ukulele,
             lute, or five-string banjo the order might not strictly be from lowest to
             highest.  The same would hold true for certain violin scordatura pieces, such
             as some of Biber's *Mystery Sonatas*`)
-            
             ''')
                        
 class Violin(StringInstrument):   
@@ -1670,6 +1644,7 @@ _DOC_ORDER = [Instrument]
 
 if __name__ == "__main__":
     # sys.arg test options will be used in mainTest()
+    import music21
     music21.mainTest(Test)
 
 

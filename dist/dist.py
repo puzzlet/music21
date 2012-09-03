@@ -1,12 +1,24 @@
+# -*- coding: utf-8 -*-
 #-------------------------------------------------------------------------------
-# Name:          dist.py
-# Purpose:       Distribution and uploading script
+# Name:         dist.py
+# Purpose:      Distribution and uploading script
 #
-# Authors:       Christopher Ariza
+# Authors:      Christopher Ariza
 #
-# Copyright:     (c) 2010-2012 Christopher Ariza
-# License:       GPL
+# Copyright:    Copyright © 2010-2012 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
+'''
+Builds various kinds of music21 distribution files and uploads them to PyPI and GoogleCode.
+
+To do a release, first run test/multiprocessTest.py then test/test.py (normally not necessary,
+because it's slower and mostly duplicates multiprocessTest, but should be done before making
+a release), then test/testDocumentation, test/testSerialization, and test/testStream.
+
+If all tests pass, run `corpus.cacheMetadata('core')`, buildDoc/build, buildDoc/upload, and
+finally this file.
+'''
+
 
 import os, sys, tarfile, zipfile
 
@@ -24,7 +36,8 @@ Build and upload music21 in three formats: egg, exe, and tar.
 Simply call from the command line.
 '''
 
-PY = 'python2.7'
+PY = sys.executable
+environLocal.warn("using python executable at %s" % PY)
 
 class Distributor(object):
     def __init__(self):
@@ -32,6 +45,7 @@ class Distributor(object):
         self.fpWin = None
         self.fpTar = None
 
+        self.buildNoCorpus = True
         self.fpEggNoCorpus = None
         self.fpTarNoCorpus = None
 
@@ -55,12 +69,15 @@ class Distributor(object):
         self.fpBuildDir = os.path.join(self.fpPackageDir, 'build')
         self.fpEggInfo = os.path.join(self.fpPackageDir, 'music21.egg-info')
 
+        sys.path.insert(0, parentDir)  # to get setup in as a possibility.
+
         for fp in [self.fpDistDir, self.fpPackageDir, self.fpBuildDir]:
             environLocal.warn(fp)
 
 
-    def _updatePaths(self):
-        '''Process output of build scripts. Get most recently produced distributions.
+    def updatePaths(self):
+        '''
+        Process output of build scripts. Get most recently produced distributions.
         '''
         contents = os.listdir(self.fpDistDir)
         for fn in contents:
@@ -69,19 +86,21 @@ class Distributor(object):
                 self.fpEgg = fp
             elif self.version in fn and fn.endswith('.exe'):
                 fpNew = fp.replace('.macosx-10.6-intel.exe', '.exe')
-                os.rename(fp, fpNew)
+                fpNew = fpNew.replace('.macosx-10.7-x86_64.exe', '.exe')
+                fpNew = fpNew.replace('.macosx-10.8-x86_64.exe', '.exe')
+                if fpNew != fp:
+                    os.rename(fp, fpNew)
                 self.fpWin = fpNew
             elif self.version in fn and fn.endswith('.tar.gz'):
                 self.fpTar = fp
 
+        environLocal.warn('giving paths for egg, exe, and tar.gz/zip, respectively:')
         for fn in [self.fpEgg, self.fpWin, self.fpTar]:
             if fn == None:
                 environLocal.warn('missing fn path')
             else:
-                environLocal.warn(fn)
-
-
-
+                environLocal.warn(fn)   
+    
     def removeCorpus(self, fp):
         '''Remove the corpus from a compressed file (.tar.gz or .egg) and create a new music21-noCorpus version.
 
@@ -190,31 +209,49 @@ class Distributor(object):
         '''Build all distributions. Update and rename file paths if necessary; remove extract build produts.
         '''
         # call setup.py
-        os.system('cd %s; %s setup.py bdist_egg' % (self.fpPackageDir, PY))
-        os.system('cd %s; %s setup.py bdist_wininst' % 
-                    (self.fpPackageDir, PY))
-        os.system('cd %s; %s setup.py sdist' % 
-                    (self.fpPackageDir, PY))
+        #import setup -- for some reason doesnt work unless called from commandline
+        for type in ['bdist_egg', 'bdist_wininst', 'sdist --formats=gztar']:    
+                environLocal.warn('making %s' % type)
+
+                #setup.writeManifestTemplate(self.fpPackageDir)
+                #setup.runDisutils(type)
+                savePath = os.getcwd()
+                os.chdir(self.fpPackageDir)
+                os.system('%s setup.py %s' % 
+                            (PY, type))
+                os.chdir(savePath)
+
+#        os.system('cd %s; %s setup.py bdist_egg' % (self.fpPackageDir, PY))
+#        os.system('cd %s; %s setup.py bdist_wininst' % 
+#                    (self.fpPackageDir, PY))
+#        os.system('cd %s; %s setup.py sdist' % 
+#                    (self.fpPackageDir, PY))
 
         #os.system('cd %s; python setup.py sdist' % self.fpPackageDir)
-        self._updatePaths()
-
+        self.updatePaths()
+        #exit()
         # remove build dir, egg-info dir
-        environLocal.warn('removing %s' % self.fpEggInfo)
+        environLocal.warn('removing %s (except on windows...do it yourself)' % self.fpEggInfo)
         os.system('rm -r %s' % self.fpEggInfo)
-        environLocal.warn('removing %s' % self.fpBuildDir)
+        environLocal.warn('removing %s (except on windows...do it yourself)' % self.fpBuildDir)
         os.system('rm -r %s' % self.fpBuildDir)
 
-        # create no corpus versions
-        self.fpTarNoCorpus = self.removeCorpus(fp=self.fpTar)
-        self.fpEggNoCorpus = self.removeCorpus(fp=self.fpEgg)
+        if self.buildNoCorpus is True:
+            # create no corpus versions
+            self.fpTarNoCorpus = self.removeCorpus(fp=self.fpTar)
+            self.fpEggNoCorpus = self.removeCorpus(fp=self.fpEgg)
 
 
     def _uploadPyPi(self):
         '''Upload source package to PyPI
         '''
-        os.system('cd %s; %s setup.py bdist_egg upload' % 
-                (self.fpPackageDir, PY))
+        savePath = os.getcwd()
+        os.chdir(self.fpPackageDir)
+        os.system('%s setup.py bdist_egg upload' % PY)
+        os.chdir(savePath)
+
+        #os.system('cd %s; %s setup.py bdist_egg upload' % 
+        #        (self.fpPackageDir, PY))
 
     def _uploadGoogleCode(self, fp):
         '''Upload distributions to Google code. Requires googlecode_upload.py script from: 
@@ -224,7 +261,7 @@ class Distributor(object):
 
         summary = self.version
         project = 'music21'
-        user = 'christopher.ariza'
+        user = 'cuthbert@gmail.com'
 
         if fp.endswith('.tar.gz'):
             labels = ['OpSys-All', 'Featured', 'Type-Archive']
@@ -243,10 +280,15 @@ class Distributor(object):
         '''Perform all uploads.
         '''
         self._uploadPyPi()
-        # put in reverse order as to be listed
-        for fp in [self.fpEggNoCorpus, self.fpTarNoCorpus, 
-                   self.fpWin, self.fpEgg, self.fpTar
-            ]:
+#         for fp in [self.fpTar, self.fpEgg, self.fpWin, 
+#             self.fpTarNoCorpus, self.fpEggNoCorpus]:
+        if self.buildNoCorpus is True:
+            fileList = [self.fpEggNoCorpus, self.fpTarNoCorpus, self.fpWin, 
+                    self.fpEgg, self.fpTar]
+        else:
+            fileList = [self.fpWin, self.fpEgg, self.fpTar]
+        
+        for fp in fileList:
             self._uploadGoogleCode(fp)
 
 
@@ -260,10 +302,8 @@ class Distributor(object):
 if __name__ == '__main__':
     import sys
     d = Distributor()
+    d.buildNoCorpus = False
     d.build()
-    d.upload()
+    d.updatePaths()
+    #d.upload()
     
-
-
-
-

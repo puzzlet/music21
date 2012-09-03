@@ -6,8 +6,8 @@
 # Authors:      Jared Sadoian
 # Authors:      Christopher Ariza
 #
-# Copyright:    (c) 2010 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2010 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 
 '''This module describes classes for performing windowed and overlapping windowed analysis. The :class:`music21.analysis.windowed.WindowedAnalysis` provides a reusable framework for systematic overlapping window analysis at the starting at the level of the quarter note and moving to the size of an entire :class:`music21.stream.Stream`.
@@ -20,7 +20,7 @@ import unittest, doctest, random
 import sys
 import math
 
-import music21
+from music21 import exceptions21
 
 from music21 import common
 from music21 import meter
@@ -34,7 +34,7 @@ environLocal = environment.Environment(_MOD)
 
 
 #------------------------------------------------------------------------------
-class WindowedAnalysisException(Exception):
+class WindowedAnalysisException(exceptions21.Music21Exception):
     pass
 
 
@@ -135,7 +135,7 @@ class WindowedAnalysis(object):
             for i in windowCountIndices:
                 current = stream.Stream()
                 for j in range(i, i+windowSize):
-                    #environLocal.pd(['self._windowedStream[j]', self._windowedStream[j]])
+                    #environLocal.printDebug(['self._windowedStream[j]', self._windowedStream[j]])
                     current.append(self._windowedStream[j])
                 data[i], color[i] = self.processor.process(current)
 
@@ -209,14 +209,14 @@ class WindowedAnalysis(object):
         >>> y[0][0].startswith('#') # for each window, we get a solution and a color
         True
         >>> x[0][0][0] 
-        B
+        <music21.pitch.Pitch B>
 
         >>> x, y, z = wa.process(1, 2, includeTotalWindow=False)
         >>> len(x) # we have two series of windows
         2
 
         >>> x[0][0] # the data returned is processor dependent; here we get
-        (B, 'major', 0.6868258874056411)
+        (<music21.pitch.Pitch B>, 'major', 0.6868258874056411)
         >>> y[0][0].startswith('#') # a color is returned for each matching data position
         True
         '''
@@ -399,6 +399,7 @@ _DOC_ORDER = [WindowedAnalysis]
 
 if __name__ == "__main__":
     if len(sys.argv) == 1: # normal conditions
+        import music21
         music21.mainTest(Test)
     elif len(sys.argv) > 1:
         a = Test()

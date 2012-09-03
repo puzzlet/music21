@@ -6,18 +6,21 @@
 # Authors:      Michael Scott Cuthbert
 # Authors:      Christopher Ariza
 #
-# Copyright:    (c) 2009-2012 The music21 Project
+# Copyright:    Copyright © 2009-2012 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
-'''Utility routines for processing text in scores and other musical objects. 
+'''
+Utility routines for processing text in scores and other musical objects. 
 '''
 
 import doctest, unittest
 import os
 
-import music21 # needed to properly do isinstance checking
+#import music21 # needed to properly do isinstance checking
 
 from music21 import base
+from music21 import exceptions21
+from music21 import languageExcerpts
 from music21 import environment
 from music21 import common
 
@@ -165,12 +168,12 @@ def postpendArticle(src, language=None):
 
 
 #-------------------------------------------------------------------------------
-class TextException(music21.Music21Exception):
+class TextException(exceptions21.Music21Exception):
     pass
 
 
 #-------------------------------------------------------------------------------
-class TextFormatException(music21.Music21Exception):
+class TextFormatException(exceptions21.Music21Exception):
     pass
 
 class TextFormat(object):
@@ -332,7 +335,7 @@ class TextFormat(object):
 #         return post
 
 #-------------------------------------------------------------------------------
-class TextBoxException(music21.Music21Exception):
+class TextBoxException(exceptions21.Music21Exception):
     pass
 
 #-------------------------------------------------------------------------------
@@ -557,7 +560,7 @@ class LanguageDetector(object):
     def readExcerpts(self):
         for languageCode in self.languageCodes:
             pair = '  '
-            f = open(os.path.dirname(music21.languageExcerpts.__file__) + os.path.sep + languageCode + '.txt')                
+            f = open(os.path.dirname(languageExcerpts.__file__) + os.path.sep + languageCode + '.txt')                
             self.trigrams[languageCode] = Trigram(f.read().split())
             f.close()
 
@@ -797,7 +800,7 @@ class Test(unittest.TestCase):
         self.assertTrue(0.99 < ld.trigrams['fr'] - ld.trigrams['cn'] < 1.0)
         
         self.assertEqual('en', ld.mostLikelyLanguage(u"hello friends, this is a test of the ability of language detector to tell what language I am writing in."))
-        self.assertEqual('it', ld.mostLikelyLanguage(u"ciao amici! così trovo in quale lingua ho scritto questo passaggio. Spero che troverò che è stata scritta in italiano"))
+        self.assertEqual('it', ld.mostLikelyLanguage(u"ciao amici! cosÃ¬ trovo in quale lingua ho scritto questo passaggio. Spero che troverÃ² che Ã¨ stata scritta in italiano"))
 
         messiahGovernment = corpus.parse('handel/hwv56/movement1-13.md')
         forUntoUs = assembleLyrics(messiahGovernment)
@@ -812,7 +815,7 @@ _DOC_ORDER = [TextBox, TextFormat]
 
 
 if __name__ == "__main__":
-
+    import music21
     music21.mainTest(Test)
 
 

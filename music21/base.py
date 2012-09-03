@@ -6,8 +6,8 @@
 # Authors:      Michael Scott Cuthbert
 #               Christopher Ariza
 #
-# Copyright:    (c) 2009-2012 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2008-2012 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 
 # base -- the convention within music21 is that __init__ files contain:
@@ -27,7 +27,7 @@ available after importing music21.
 <class 'music21.base.Music21Object'>
 
 >>> music21.VERSION_STR
-'1.0.0'
+'1.3.0'
 
 Alternatively, after doing a complete import, these classes are available
 under the module "base":
@@ -39,7 +39,7 @@ under the module "base":
 
 #-------------------------------------------------------------------------------
 # string and tuple must be the same
-VERSION = (1, 0, 0)
+VERSION = (1, 3, 0)
 VERSION_STR = "%s.%s.%s" % (VERSION[0], VERSION[1], VERSION[2])
 #-------------------------------------------------------------------------------
 
@@ -54,32 +54,13 @@ import unittest, doctest
 #import uuid
 import inspect
 
-#-------------------------------------------------------------------------------
-class Music21Exception(Exception):
-    pass
-
-# should be renamed:
-class DefinedContextsException(Music21Exception):
-    pass
-
-class Music21ObjectException(Music21Exception):
-    pass
-
-class ElementException(Music21Exception):
-    pass
-
-class GroupException(Music21Exception):
-    pass
-
-
+#-----all exceptions are in the exceptions21 package.
+from music21 import exceptions21
+from music21.exceptions21 import *
 
 
 from music21 import common
 from music21 import environment
-
-# needed for temporal manipulations; not music21 objects
-from music21 import tie
-
 _MOD = 'music21.base.py'
 environLocal = environment.Environment(_MOD)
 
@@ -101,10 +82,11 @@ try:
 except ImportError:
     _missingImport.append('scipy')
 
-try:
-    import PIL
-except ImportError:
-    _missingImport.append('PIL')
+# used for better PNG processing in lily -- not very important
+#try:
+#    import PIL
+#except ImportError:
+#    _missingImport.append('PIL')
 
 # as this is only needed for one module, and error messages print
 # to standard io, this has been removed
@@ -134,7 +116,7 @@ WEAKREF_ACTIVE = True
 
 
 #-------------------------------------------------------------------------------
-class JSONSerializerException(Exception):
+class JSONSerializerException(exceptions21.Music21Exception):
     pass
 
 class JSONSerializer(object):
@@ -151,7 +133,15 @@ class JSONSerializer(object):
     # override these methods for json functionality
 
     def _autoGatherAttributes(self):
-        '''Gather just the instance data members that are proceeded by an underscore. 
+        '''
+        Gather just the instance data members that are proceeded by an underscore. 
+        
+        Returns a list of those data members
+        
+        >>> from music21 import *
+        >>> n = note.Note()
+        >>> n._autoGatherAttributes()
+        ['_activeSite', '_activeSiteId', '_definedContexts', '_duration', '_idLastDeepCopyOf', '_notehead', '_noteheadFill', '_noteheadParenthesis', '_overriddenLily', '_priority', '_stemDirection', '_volume']
         '''
         post = []
         # names that we always do not need
@@ -163,11 +153,11 @@ class JSONSerializer(object):
             if (bundle.name.startswith('_') and not 
                 bundle.name.startswith('__')):
                 classNames.append(bundle.name)
-        #environLocal.pd(['classNames', classNames])
+        #environLocal.printDebug(['classNames', classNames])
         for name in dir(self):
             if name.startswith('_') and not name.startswith('__'):
                 attr = getattr(self, name)
-                #environLocal.pd(['inspect.isroutine()', attr, inspect.isroutine(attr)])
+                #environLocal.printDebug(['inspect.isroutine()', attr, inspect.isroutine(attr)])
                 if (not inspect.ismethod(attr) and not 
                     inspect.isfunction(attr) and not inspect.isroutine(attr)): 
                     # class names stored are class attrs, not needed for 
@@ -175,21 +165,45 @@ class JSONSerializer(object):
                     if name not in classNames and name not in exclude:
                         # store the name, not the attr
                         post.append(name)
-        #environLocal.pd(['auto-derived jsonAttributes', post])
+        #environLocal.printDebug(['auto-derived jsonAttributes', post])
         return post
 
     def jsonAttributes(self):
-        '''Define all attributes of this object that should be JSON serialized for storage and re-instantiation. Attributes that name basic Python objects or :class:`~music21.base.JSONSerializer` subclasses, or dictionaries or lists that contain Python objects or :class:`~music21.base.JSONSerializer` subclasses, can be provided.
+        '''
+        Define all attributes of this object that should be JSON serialized for storage and re-instantiation. Attributes that name basic 
+        Python objects or :class:`~music21.base.JSONSerializer` subclasses, 
+        or dictionaries or lists that contain Python objects or :class:`~music21.base.JSONSerializer` subclasses, can be provided.
+        
+        Should be overridden in subclasses.
+        
+        For an object which does not define this, just returns all the _underscore attributes:
+        
+        >>> import music21
+        >>> music21.JSONSerializer().jsonAttributes()
+        []
         '''
         #return []
         return self._autoGatherAttributes()
 
 
     def jsonComponentFactory(self, idStr):
-        '''Given a stored string during JSON serialization, return an object. This method effectively converts a string class specification into a vanilla instance ready for specialization via stored data attributes. 
+        '''
+        Given a stored string during JSON serialization, return an object. 
+        This method effectively converts a string class specification into 
+        a vanilla instance ready for specialization via stored data attributes. 
 
-        A subclass that overrides this method will have access to all modules necessary to create whatever objects necessary. 
+        A subclass that overrides this method will have access to all 
+        modules necessary to create whatever objects necessary. 
 
+        >>> from music21 import *
+        >>> jss = base.JSONSerializer()
+        >>> n = jss.jsonComponentFactory('.Note')
+        >>> n
+        <music21.note.Note C>
+
+        >>> jss.jsonComponentFactory('.NotAClass')
+        Traceback (most recent call last):
+        JSONSerializerException: cannot instantiate an object from id string: .NotAClass
         '''
         # keep in alpha
         from music21 import base
@@ -200,62 +214,40 @@ class JSONSerializer(object):
         from music21 import note
         from music21 import pitch
 
-        # base:
-        if '.DefinedContexts' in idStr:
-            return base.DefinedContexts()
-
-        # derivation
-        if '.Derivation' in idStr:
-            return derivation.Derivation()
-
-        # pitch module
-        elif '.Microtone' in idStr:
-            return pitch.Microtone()
-        elif '.Accidental' in idStr:
-            return pitch.Accidental()
-        elif '.Pitch' in idStr:
-            return pitch.Pitch()
-
-        # duration module
-        elif '.DurationUnit' in idStr:
-            return duration.DurationUnit()
-        elif '.Duration' in idStr:
-            return duration.Duration()
-
-        # editorial module
-        elif '.NoteEditorial' in idStr:
-            return editorial.NoteEditorial()
-        elif '.Comment' in idStr:
-            return editorial.Comment()
-
-        # note module
-        elif '.Lyric' in idStr:
-            return note.Lyric()
-        elif '.GeneralNote' in idStr:
-            return note.GeneralNote()
-        elif '.NotRest' in idStr:
-            return note.NotRest()
-        elif '.Note' in idStr:
-            return note.Note()
-        elif '.Rest' in idStr:
-            return note.Rest()
-
-
-        # beam module
-        elif '.Beam' in idStr:
-            return beam.Beam()
-        elif '.Beams' in idStr:
-            return beam.Beams()
-
-        else:
-            raise JSONSerializerException('cannot instantiate an object from id string: %s' % idStr)
+        mapping = {'.DefinedContexts': base.DefinedContexts,
+                   '.Derivation': derivation.Derivation,
+                   '.Microtone': pitch.Microtone,
+                   '.Accidental': pitch.Accidental,
+                   '.Pitch': pitch.Pitch,
+                   '.DurationUnit': duration.DurationUnit,
+                   '.Duration': duration.Duration,
+                   '.NoteEditorial': editorial.NoteEditorial,
+                   '.Comment': editorial.Comment,
+                   '.Lyric': note.Lyric,
+                   '.GeneralNote': note.GeneralNote,
+                   '.NotRest': note.NotRest,
+                   '.Note': note.Note,
+                   '.Rest': note.Rest,
+                   '.Beam': beam.Beam,
+                   '.Beams': beam.Beams,
+                    }
+        for map in mapping:
+            if map in idStr:
+                objClass = mapping[map]
+                obj = objClass()
+                return obj        
+        raise JSONSerializerException('cannot instantiate an object from id string: %s' % idStr)
 
 
     #---------------------------------------------------------------------------
     # core methods for getting and setting
 
     def _getJSONDict(self, includeVersion=False):
-        '''Return a dictionary representation for JSON processing. All component objects are similarly encoded as dictionaries. This method is recursively called as needed to store dictionaries of component objects that are :class:`~music21.base.JSONSerializer` subclasses.
+        '''
+        Return a dictionary representation for JSON processing. 
+        All component objects are similarly encoded as dictionaries. 
+        This method is recursively called as needed to store dictionaries 
+        of component objects that are :class:`~music21.base.JSONSerializer` subclasses.
 
         >>> from music21 import *
         >>> t = metadata.Text('my text')
@@ -280,7 +272,7 @@ class JSONSerializer(object):
 
             # if, stored on this object, is an object w/ a json method
             if hasattr(attrValue, 'json'):
-                #environLocal.pd(['attrValue', attrValue])
+                #environLocal.printDebug(['attrValue', attrValue])
                 flatData[attr] = attrValue._getJSONDict()
 
             # handle lists; look for objects that have json attributes
@@ -310,16 +302,13 @@ class JSONSerializer(object):
         src['__attr__'] = flatData
         return src
 
-    def _getJSON(self):
-        '''Return the dictionary returned by _getJSONDict() as a JSON string.
-        '''
-        # when called from json property, include version number;
-        # this should mean that only the outermost object has a version number
-        return json.dumps(self._getJSONDict(includeVersion=True))
-
 
     def _isComponent(self, target):
-        '''Return a boolean if the provided object is a dictionary that defines a __class__ key, the necessary conditions to try to instantiate a component object with the jsonComponentFactory method.
+        '''
+        Return a boolean if the provided object is a 
+        dictionary that defines a __class__ key, the necessary 
+        conditions to try to instantiate a component object 
+        with the jsonComponentFactory method.
         '''
         # on export, check for attribute
         if isinstance(target, dict) and '__class__' in target.keys():
@@ -333,8 +322,18 @@ class JSONSerializer(object):
         obj.json = src
         return obj
 
+
+    def _getJSON(self):
+        '''Return the dictionary returned by _getJSONDict() as a JSON string.
+        '''
+        # when called from json property, include version number;
+        # this should mean that only the outermost object has a version number
+        return json.dumps(self._getJSONDict(includeVersion=True))
+
     def _setJSON(self, jsonStr):
-        '''Set this object based on a JSON string or instantiated dictionary representation.
+        '''
+        Set this object based on a JSON string 
+        or instantiated dictionary representation.
 
         >>> from music21 import *
         >>> t = metadata.Text('my text')
@@ -396,7 +395,14 @@ class JSONSerializer(object):
                                 else:
                                     subDict[subKey] = attrValueSub
                             #setattr(self, key, subDict)
-                            dst = getattr(self, key)
+                            try:
+                                dst = getattr(self, key)
+                            except AttributeError as ae:
+                                if key == "_storage": # changed name; help older .json files...
+                                    dst = getattr(self, "storage")
+                                else:
+                                    raise JSONSerializerException("Problem with key: %s for object %s: %s" % (key, self, ae))
+                            
                             # updating the dictionary preserves default 
                             # values created at init
                             dst.update(subDict) 
@@ -410,11 +416,155 @@ class JSONSerializer(object):
         ''')    
 
     def jsonPrint(self):
+        r'''
+        Prints out the json output for a given object:
+        
+        >>> from music21 import *
+        >>> n = note.Note()
+        >>> n.jsonPrint()
+        {
+          "__attr__": {
+            "_definedContexts": {
+              "__attr__": {
+                "_definedContexts": {
+                  "null": {
+                    "class": null, 
+                    "isDead": false, 
+                    "obj": null, 
+                    "offset": 0.0, 
+                    "time": 0
+                  }
+                }, 
+                "_lastID": -1, 
+                "_locationKeys": [
+                  null
+                ], 
+                "_timeIndex": 1
+              }, 
+              "__class__": "<class 'music21.base.DefinedContexts'>"
+            }, 
+            "_duration": {
+              "__attr__": {
+                "_cachedIsLinked": true, 
+                "_components": [
+                  {
+                    "__attr__": {
+                      "_dots": [
+                        0
+                      ], 
+                      "_link": true, 
+                      "_qtrLength": 1.0, 
+                      "_quarterLengthNeedsUpdating": false, 
+                      "_tuplets": [], 
+                      "_type": "quarter", 
+                      "_typeNeedsUpdating": false
+                    }, 
+                    "__class__": "<class 'music21.duration.DurationUnit'>"
+                  }
+                ], 
+                "_componentsNeedUpdating": false, 
+                "_qtrLength": 1.0, 
+                "_quarterLengthNeedsUpdating": false
+              }, 
+              "__class__": "<class 'music21.duration.Duration'>"
+            }, 
+            "_notehead": "normal", 
+            "_noteheadFill": "default", 
+            "_noteheadParenthesis": false, 
+            "_priority": 0, 
+            "_stemDirection": "unspecified", 
+            "articulations": [], 
+            "beams": {
+              "__attr__": {
+                "beamsList": [], 
+                "feathered": false
+              }, 
+              "__class__": "<class 'music21.beam.Beams'>"
+            }, 
+            "editorial": {
+              "__attr__": {
+                "comment": {
+                  "__attr__": {}, 
+                  "__class__": "<class 'music21.editorial.Comment'>"
+                }, 
+                "misc": {}
+              }, 
+              "__class__": "<class 'music21.editorial.NoteEditorial'>"
+            }, 
+            "expressions": [], 
+            "lyrics": [], 
+            "pitch": {
+              "__attr__": {
+                "_definedContexts": {
+                  "__attr__": {
+                    "_definedContexts": {
+                      "null": {
+                        "class": null, 
+                        "isDead": false, 
+                        "obj": null, 
+                        "offset": 0.0, 
+                        "time": 0
+                      }
+                    }, 
+                    "_lastID": -1, 
+                    "_locationKeys": [
+                      null
+                    ], 
+                    "_timeIndex": 1
+                  }, 
+                  "__class__": "<class 'music21.base.DefinedContexts'>"
+                }, 
+                "_duration": {
+                  "__attr__": {
+                    "_cachedIsLinked": true, 
+                    "_components": [
+                      {
+                        "__attr__": {
+                          "_dots": [
+                            0
+                          ], 
+                          "_link": true, 
+                          "_qtrLength": 1.0, 
+                          "_quarterLengthNeedsUpdating": false, 
+                          "_tuplets": [], 
+                          "_type": "quarter", 
+                          "_typeNeedsUpdating": false
+                        }, 
+                        "__class__": "<class 'music21.duration.DurationUnit'>"
+                      }
+                    ], 
+                    "_componentsNeedUpdating": false, 
+                    "_qtrLength": 1.0, 
+                    "_quarterLengthNeedsUpdating": false
+                  }, 
+                  "__class__": "<class 'music21.duration.Duration'>"
+                }, 
+                "_microtone": {
+                  "__attr__": {
+                    "_centShift": 0, 
+                    "_harmonicShift": 1
+                  }, 
+                  "__class__": "<class 'music21.pitch.Microtone'>"
+                }, 
+                "_octave": 4, 
+                "_pitchSpaceNeedsUpdating": true, 
+                "_priority": 0, 
+                "_step": "C"
+              }, 
+              "__class__": "<class 'music21.pitch.Pitch'>"
+            }
+          }, 
+          "__class__": "<class 'music21.note.Note'>", 
+          "__version__": [...]
+        }        
+        '''
         print(json.dumps(self._getJSONDict(includeVersion=True), 
             sort_keys=True, indent=2))
 
     def jsonWrite(self, fp, format=True):
-        '''Given a file path, write JSON to a file for this object. Default file extension should be .json. File is opened and closed within this method call. 
+        '''
+        Given a file path, write JSON to a file for this object. 
+        File extension should be .json. File is opened and closed within this method call. 
         '''
         f = codecs.open(fp, mode='w', encoding='utf-8')
         if not format:
@@ -425,7 +575,10 @@ class JSONSerializer(object):
         f.close()
 
     def jsonRead(self, fp):
-        '''Given a file path, read JSON from a file to this object. Default file extension should be .json. File is opened and closed within this method call. 
+        '''
+        Given a file path, read JSON from a file to this object. 
+        Default file extension should be .json. File is opened 
+        and closed within this method call. 
         '''
         f = open(fp)
         self.json = f.read()
@@ -436,7 +589,8 @@ class JSONSerializer(object):
 # make subclass of set once that is defined properly
 class Groups(list):   
     '''A list of strings used to identify associations that an element might 
-    have. Enforces that all elements must be strings, and that the same element cannot be provided more than once.
+    have. Enforces that all elements must be strings, and that 
+    the same element cannot be provided more than once.
     
     >>> g = Groups()
     >>> g.append("hello")
@@ -502,11 +656,18 @@ class Groups(list):
 
 #-------------------------------------------------------------------------------
 class DefinedContexts(JSONSerializer):
-    '''An object, stored within a Music21Object, that stores (weak) references to a collection of objects that may be contextually relevant to this object.
+    '''
+    An object, stored within a Music21Object, that 
+    stores (weak) references to a collection of objects 
+    that may be contextually relevant to this object.
 
-    Some of these objects are locations (also called sites), or Streams that contain this object. In this case the DefinedContexts object stores an offset value, used for determining position within a Stream. 
+    Some of these objects are locations (also called sites), 
+    or Streams that contain this object. In this case the DefinedContexts 
+    object stores an offset value, used for determining position 
+    within a Stream. 
 
-    All defined contexts are stored as dictionaries in a dictionary. The outermost dictionary stores objects.
+    All defined contexts are stored as dictionaries in a 
+    dictionary. The outermost dictionary stores objects.
     '''
     def __init__(self, containedById=None):
         # a dictionary of dictionaries
@@ -537,10 +698,15 @@ class DefinedContexts(JSONSerializer):
         return len(self._definedContexts)
 
     def __deepcopy__(self, memo=None):
-        '''This produces a new, independent DefinedContexts object.
+        '''
+        Helper function for copy.deepcopy that in addition to
+        copying produces a new, independent DefinedContexts object.
         This does not, however, deepcopy site references stored therein.
 
-        All sites, however, are passed on to the new deepcopy, which means that in a deepcopy of a Stream that contains Notes, the copied Note will have the former site as a location, even though the new Note instance is not actually found in the old Stream.
+        All sites, however, are passed on to the new deepcopy, which 
+        means that in a deepcopy of a Stream that contains Notes, 
+        the copied Note will have the former site as a location, even 
+        though the new Note instance is not actually found in the old Stream.
 
         >>> import copy
         >>> class Mock(Music21Object): 
@@ -563,7 +729,7 @@ class DefinedContexts(JSONSerializer):
 
         new = self.__class__()
         locations = [] #self._locationKeys[:]
-        #environLocal.pd(['DefinedContexts.__deepcopy__', 'self._definedContexts.keys()', self._definedContexts.keys()])
+        #environLocal.printDebug(['DefinedContexts.__deepcopy__', 'self._definedContexts.keys()', self._definedContexts.keys()])
         for idKey in self._definedContexts.keys():
             dict = self._definedContexts[idKey]
             if dict['isDead']:
@@ -593,7 +759,8 @@ class DefinedContexts(JSONSerializer):
     # utility conversions
 
     def unwrapWeakref(self):
-        '''Unwrap any and all weakrefs stored.
+        '''
+        Unwrap any and all weakrefs stored.
 
         >>> class Mock(Music21Object): 
         ...     pass
@@ -614,7 +781,7 @@ class DefinedContexts(JSONSerializer):
         '''
         self.purgeLocations(rescanIsDead=True)
 
-        #environLocal.pd(['self', self, 'self._definedContexts.keys()', self._definedContexts.keys()])
+        #environLocal.printDebug(['self', self, 'self._definedContexts.keys()', self._definedContexts.keys()])
         for idKey in self._definedContexts.keys():
             if WEAKREF_ACTIVE:
             #if common.isWeakref(self._definedContexts[idKey]['obj']):
@@ -631,7 +798,8 @@ class DefinedContexts(JSONSerializer):
 #                         self._definedContexts[idKey]['obj'].unwrapWeakref()
 
     def wrapWeakref(self):
-        '''Wrap all stored objects with weakrefs.
+        '''
+        Wrap all stored objects with weakrefs.
 
         >>> class Mock(Music21Object): 
         ...     pass
@@ -656,7 +824,9 @@ class DefinedContexts(JSONSerializer):
                 self._definedContexts[idKey]['obj'] = post
 
     def freezeIds(self):
-        '''Temporarily replace all stored keys (object ids) with a temporary values suitable for usage in pickling.
+        '''
+        Temporarily replace all stored keys (object ids) 
+        with a temporary values suitable for usage in pickling.
 
         >>> class Mock(Music21Object): 
         ...     pass
@@ -695,7 +865,8 @@ class DefinedContexts(JSONSerializer):
         self._lastID = -1 # set to inactive
 
     def unfreezeIds(self):
-        '''Restore keys to be the id() of the object they contain.
+        '''
+        Restore keys to be the id() of the object they contain.
 
         >>> class Mock(Music21Object): 
         ...     pass
@@ -749,7 +920,8 @@ class DefinedContexts(JSONSerializer):
     # general
 
     def clear(self):
-        '''Clear all stored data.
+        '''
+        Clear all stored data.
         '''
         self._definedContexts = {} 
         self._locationKeys = []
@@ -757,7 +929,8 @@ class DefinedContexts(JSONSerializer):
         self._lastOffset = None
 
     def _prepareObject(self, obj):
-        '''Prepare an object for storage. May be stored as a standard refernce or as a weak reference.
+        '''
+        Prepare an object for storage. May be stored as a standard refernce or as a weak reference.
         '''
         # can have this perform differently based on domain
         if obj is None: # leave None alone
@@ -770,11 +943,14 @@ class DefinedContexts(JSONSerializer):
 
     def add(self, obj, offset=None, timeValue=None, idKey=None,
          classString=None):
-        '''Add a reference to the DefinedContexts collection. 
+        '''
+        Add a reference to the DefinedContexts collection. 
         If offset is None, it is interpreted as a context
         If offset is a value, it is intereted as location, i.e., a Stream.
 
-        The `timeValue` argument is used to store the time at which an object is added to locations. This is not the same as `offset` 
+        The `timeValue` argument is used to store the time 
+        at which an object is added to locations. 
+        This is not the same as `offset` 
 
         '''
         # NOTE: this is a performance critical method
@@ -821,7 +997,10 @@ class DefinedContexts(JSONSerializer):
 
 
     def remove(self, site):
-        '''Remove the object (a context or location site) specified from DefinedContexts. Object provided can be a location site or a defined context. 
+        '''
+        Remove the object (a context or location site) specified 
+        from DefinedContexts. Object provided can be a location 
+        site or a defined context. 
 
         >>> class Mock(Music21Object): 
         ...     pass
@@ -856,18 +1035,20 @@ class DefinedContexts(JSONSerializer):
             siteId = id(site)
         try:
             del self._definedContexts[siteId]
-            #environLocal.pd(['removed site w/o exception:', siteId, 'self._definedContexts.keys()', self._definedContexts.keys()])
+            #environLocal.printDebug(['removed site w/o exception:', siteId, 'self._definedContexts.keys()', self._definedContexts.keys()])
         except:    
             raise DefinedContextsException('an entry for this object (%s) is not stored in DefinedContexts' % site)
         # also delete from location keys
         if siteId in self._locationKeys:
             self._locationKeys.pop(self._locationKeys.index(siteId))
 
-        #environLocal.pd(['removed site:', 'self._definedContexts.getSites()', self.getSites()])
+        #environLocal.printDebug(['removed site:', 'self._definedContexts.getSites()', self.getSites()])
         
 
     def removeById(self, idKey):
-        '''Remove a defined contexts entry by id key, which is id() of the object. 
+        '''
+        Remove a defined contexts entry by id key, 
+        which is id() of the object. 
         '''
         # must clear if removing
         if idKey == self._lastID:
@@ -876,13 +1057,14 @@ class DefinedContexts(JSONSerializer):
         if idKey is None:
             raise Exception('trying to remove None idKey')
 
-        #environLocal.pd(['removeById', idKey, 'self._definedContexts.keys()', self._definedContexts.keys()])
+        #environLocal.printDebug(['removeById', idKey, 'self._definedContexts.keys()', self._definedContexts.keys()])
         del self._definedContexts[idKey]
         if idKey in self._locationKeys:
             self._locationKeys.pop(self._locationKeys.index(idKey))
 
     def getById(self, id):
-        '''Return the object specified by an id.
+        '''
+        Return the object specified by an id.
         Used for testing and debugging. 
         '''
         dict = self._definedContexts[id]
@@ -895,7 +1077,9 @@ class DefinedContexts(JSONSerializer):
 
 
     def _keysByTime(self, newFirst=True):
-        '''Get keys sorted by creation time, where most recent are first if `newFirst` is True. else, most recent are last.
+        '''
+        Get keys sorted by creation time, where most 
+        recent are first if `newFirst` is True. else, most recent are last.
 
         >>> import music21
         >>> class Mock(music21.Music21Object): 
@@ -922,11 +1106,14 @@ class DefinedContexts(JSONSerializer):
 
     def get(self, locationsTrail=False, sortByCreationTime=False,
             priorityTarget=None, excludeNone=False):
-        '''Get references; unwrap from weakrefs; order, based on dictionary keys, is from most recently added to least recently added.
+        '''
+        Get references; unwrap from weakrefs; order, based 
+        on dictionary keys, is from most recently added to least recently added.
 
         The `locationsTrail` option forces locations to come after all other defined contexts.
 
-        The `sortByCreationTime` option will sort objects by creation time, where most-recently assigned objects are returned first. 
+        The `sortByCreationTime` option will sort objects by creation time, 
+        where most-recently assigned objects are returned first. 
 
         If `priorityTarget` is defined, this object will be placed first in the list of objects.
 
@@ -1003,7 +1190,9 @@ class DefinedContexts(JSONSerializer):
     #---------------------------------------------------------------------------
     # for dealing with locations
     def getSites(self, idExclude=None, excludeNone=False):
-        '''Get all defined contexts that are locations. Note that this unwraps all sites from weakrefs and is thus an expensive operation. 
+        '''
+        Get all defined contexts that are locations. Note that this unwraps 
+        all sites from weakrefs and is thus an expensive operation. 
 
         >>> import music21
         >>> class Mock(music21.Music21Object): 
@@ -1048,7 +1237,8 @@ class DefinedContexts(JSONSerializer):
     
 
     def getSitesByClass(self, className):
-        '''Return sites that match the provided class.
+        '''
+        Return sites that match the provided class.
         
         Input can be either a Class object or a string
 
@@ -1085,27 +1275,27 @@ class DefinedContexts(JSONSerializer):
                 found.append(obj)
         return found
 #             
-        found = []
-        for idKey in self._locationKeys:
-            objRef = self._definedContexts[idKey]['obj']
-            if objRef is None:
-                continue
-            if not WEAKREF_ACTIVE: # leave None alone
-                obj = objRef
-            else:
-                obj = common.unwrapWeakref(objRef)
-            match = False
-            if common.isStr(className):
-                if hasattr(obj, 'classes'):
-                    if className in obj.classes:
-                        match = True
-                elif type(obj).__name__.lower() == className.lower():
-                    match = True
-            elif isinstance(obj, className):
-                match = True
-            if match:
-                found.append(obj)
-        return found
+#        found = []
+#        for idKey in self._locationKeys:
+#            objRef = self._definedContexts[idKey]['obj']
+#            if objRef is None:
+#                continue
+#            if not WEAKREF_ACTIVE: # leave None alone
+#                obj = objRef
+#            else:
+#                obj = common.unwrapWeakref(objRef)
+#            match = False
+#            if common.isStr(className):
+#                if hasattr(obj, 'classes'):
+#                    if className in obj.classes:
+#                        match = True
+#                elif type(obj).__name__.lower() == className.lower():
+#                    match = True
+#            elif isinstance(obj, className):
+#                match = True
+#            if match:
+#                found.append(obj)
+#        return found
 
 
     def hasSpannerSite(self):
@@ -1135,7 +1325,9 @@ class DefinedContexts(JSONSerializer):
         return False
 
     def getSiteCount(self):
-        '''Return the number of non-dead sites, including None. This does not unwrap weakrefs for performance. 
+        '''
+        Return the number of non-dead sites, including None. 
+        This does not unwrap weakrefs for performance. 
         '''
         count = 0
         for idKey in self._locationKeys:
@@ -1168,7 +1360,8 @@ class DefinedContexts(JSONSerializer):
         return False
 
     def hasSiteId(self, siteId):
-        '''Return True or False if this 
+        '''
+        Return True or False if this 
         DefinedContexts object already has 
         this site id defined as a location
 
@@ -1190,7 +1383,8 @@ class DefinedContexts(JSONSerializer):
         return False
 
     def getSiteIds(self):
-        '''Return a list of all site Ids.
+        '''
+        Return a list of all site Ids.
 
         >>> import music21
         >>> class Mock(music21.Music21Object): 
@@ -1207,10 +1401,14 @@ class DefinedContexts(JSONSerializer):
         return self._locationKeys
 
     def purgeLocations(self, rescanIsDead=False):
-        '''Clean all locations that refer to objects that no longer exist.
+        '''
+        Clean all locations that refer to objects that no longer exist.
 
-        The `removeOrphanedSites` option removes sites that may have been the result of deepcopy: the element has the site, but the site does not have
-        the element. This results b/c DefinedContexts are shallow-copied, and then elements are re-added. 
+        The `removeOrphanedSites` option removes sites that 
+        may have been the result of deepcopy: the element 
+        has the site, but the site does not have
+        the element. This results b/c DefinedContexts are 
+        shallow-copied, and then elements are re-added. 
 
         >>> import music21
         >>> class Mock(music21.Music21Object): 
@@ -1258,7 +1456,8 @@ class DefinedContexts(JSONSerializer):
         
 
     def _getOffsetBySiteId(self, idKey):
-        '''Main method for getting an offset from a location key.
+        '''
+        Main method for getting an offset from a location key.
 
         >>> import music21
         >>> class Mock(music21.Music21Object): 
@@ -1271,7 +1470,7 @@ class DefinedContexts(JSONSerializer):
         >>> aLocations = music21.DefinedContexts()
         >>> aLocations.add(aSite, 0)
         >>> aLocations.add(cSite) # a context
-        >>> aLocations.add(bSite, 234) # can add at same offset or another
+        >>> aLocations.add(bSite, 234) # can add at same offset or a different one
         >>> aLocations.add(dSite) # a context
         >>> aLocations._getOffsetBySiteId(id(bSite))
         234
@@ -1324,7 +1523,8 @@ class DefinedContexts(JSONSerializer):
 
 
     def getOffsetByObjectMatch(self, obj):
-        '''For a given object, return the 
+        '''
+        For a given object, return the 
         offset using a direct object match. 
         The stored id value is not used; 
         instead, the id() of both the stored 
@@ -1339,9 +1539,9 @@ class DefinedContexts(JSONSerializer):
         >>> aLocations = music21.DefinedContexts()
         >>> aLocations.add(aSite, 23)
         >>> aLocations.add(bSite, 121.5)
-        >>> aLocations.getOffsetBySite(aSite)
+        >>> aLocations.getOffsetByObjectMatch(aSite)
         23
-        >>> aLocations.getOffsetBySite(bSite)
+        >>> aLocations.getOffsetByObjectMatch(bSite)
         121.5
         '''
         for idKey in self._definedContexts.keys():
@@ -1358,14 +1558,14 @@ class DefinedContexts(JSONSerializer):
                 dict['isDead'] = True
                 continue
             if id(compareObj) == id(obj):
-                #environLocal.pd(['found object as site', obj, id(obj), 'idKey', idKey])
+                #environLocal.printDebug(['found object as site', obj, id(obj), 'idKey', idKey])
                 return self._getOffsetBySiteId(idKey) #dict['offset']
         raise DefinedContextsException('an entry for this object (%s) is not stored in DefinedContexts' % obj)
 
     def getOffsetBySite(self, site):
-        '''For a given site return this
-        DefinedContexts' 
-        offset in it. The None site is 
+        '''
+        For a given site return this
+        DefinedContexts's offset in it. The None site is 
         permitted. The id() of the site is used to find the offset. 
 
 
@@ -1396,7 +1596,8 @@ class DefinedContexts(JSONSerializer):
 
 
     def getOffsetBySiteId(self, siteId):
-        '''For a given site id, return its offset.
+        '''
+        For a given site id, return its offset.
 
         >>> import music21
         >>> class Mock(music21.Music21Object): 
@@ -1511,16 +1712,21 @@ class DefinedContexts(JSONSerializer):
              sortByCreationTime=False, prioritizeActiveSite=False, 
              priorityTarget=None, getElementMethod='getElementAtOrBefore', 
              memo=None):
-        '''Return the most recently added reference based on className. Class name can be a string or the class name.
+        '''
+        Return the most recently added reference based on className. 
+        Class name can be a string or the class name.
 
         This will recursively search the defined contexts of existing defined contexts.
 
         The `callerFirst` parameters is simply used to pass a reference of the first caller; this
         is necessary if we are looking within a Stream for a flat offset position.
 
-        If `priorityTarget` is specified, this location will be searched first. The `prioritizeActiveSite` is pased to to any recursively called getContextByClass() calls. 
+        If `priorityTarget` is specified, this location will 
+        be searched first. The `prioritizeActiveSite` is pased to 
+        to any recursively called getContextByClass() calls. 
 
-        The `getElementMethod` is a string that selects which Stream method is used to get elements for searching with getElementsByClass() calls. 
+        The `getElementMethod` is a string that selects which Stream method 
+        is used to get elements for searching with getElementsByClass() calls. 
 
         >>> import music21
         >>> class Mock(music21.Music21Object): 
@@ -1581,7 +1787,7 @@ class DefinedContexts(JSONSerializer):
             if (classNameIsStr and obj.isFlat and 
                 obj._definedContexts.getSiteCount() == 1):
                 #if DEBUG_CONTEXT: print '\tY: skipping flat stream that does not contain object:', id(obj), obj
-                #environLocal.pd(['\tY: skipping flat stream that does not contain object:'])
+                #environLocal.printDebug(['\tY: skipping flat stream that does not contain object:'])
                 if not obj.hasElementOfClass(className, forceFlat=True):
                     continue # skip, not in this stream
 
@@ -1616,7 +1822,8 @@ class DefinedContexts(JSONSerializer):
 
 
     def getAllByClass(self, className, found=None, idFound=None, memo=None):
-        '''Return all known references of a given class found 
+        '''
+        Return all known references of a given class found 
         in any association with this DefinedContexts.
 
         This will recursively search the defined contexts 
@@ -1627,12 +1834,17 @@ class DefinedContexts(JSONSerializer):
         >>> import music21
         >>> class Mock(music21.Music21Object): 
         ...    pass
+        >>> class Mocker(music21.Music21Object): 
+        ...    pass
         >>> aObj = Mock()
         >>> bObj = Mock()
+        >>> cObj = Mocker()
         >>> dc = music21.DefinedContexts()
         >>> dc.add(aObj)
         >>> dc.add(bObj)
-        >>> dc.getAllByClass = [aObj, bObj]
+        >>> dc.add(cObj)
+        >>> dc.getAllByClass(Mock) == [aObj, bObj]
+        True
         '''
         if memo == None:
             memo = {} # intialize
@@ -1671,7 +1883,8 @@ class DefinedContexts(JSONSerializer):
         return found
 
     def getAttrByName(self, attrName):
-        '''Given an attribute name, search all objects and find the first
+        '''
+        Given an attribute name, search all objects and find the first
         that matches this attribute name; then return a reference to this attribute.
 
         >>> import music21
@@ -1760,11 +1973,14 @@ class Music21Object(JSONSerializer):
     isVariant = False
 
     # define order to present names in documentation; use strings
-    _DOC_ORDER = ['searchActiveSiteByAttr', 'getContextAttr', 'setContextAttr']
+    _DOC_ORDER = ['findAttributeInHierarchy', 'getContextAttr', 'setContextAttr']
     # documentation for all attributes (not properties or methods)
     _DOC_ATTR = {
-    'id': 'Unique identification string.',
-    'groups': 'An instance of a Group object.',
+    'id': 'A unique identification string (not to be confused with the default `.id()` method.',
+    'groups': 'An instance of a :class:`~music21.base.Group` object which describes arbitrary `Groups` that this object belongs to.',
+    'isStream': 'Boolean value for quickly identifying :class:`~music21.stream.Stream` objects (False by default).',
+    'isSpanner': 'Boolean value for quickly identifying :class:`~music21.spanner.Spanner` objects (False by default).',
+    'isVariant': 'Boolean value for quickly identifying :class:`~music21.variant.Variant` objects (False by default).',
     'classSortOrder' : '''Property which returns an number (int or otherwise)
         depending on the class of the Music21Object that
         represents a priority for an object based on its class alone --
@@ -1776,9 +1992,14 @@ class Music21Object(JSONSerializer):
         All undefined classes have classSortOrder of 20 -- same as note.Note
         
         >>> from music21 import *
+        >>> m21o = base.Music21Object()
+        >>> m21o.classSortOrder
+        20
+        
         >>> tc = clef.TrebleClef()
         >>> tc.classSortOrder
         0
+        
         >>> ks = key.KeySignature(3)
         >>> ks.classSortOrder
         1
@@ -1793,7 +2014,7 @@ class Music21Object(JSONSerializer):
         >>> ec1.classSortOrder
         5
         ''',
-        'hideObjectOnPrint': 'if set to True will not print upon output (only to MusicXML at this point)',
+        'hideObjectOnPrint': 'if set to `True` will not print upon output (only used in MusicXML output at this point).',
     }
 
     def __init__(self, *arguments, **keywords):
@@ -1843,6 +2064,18 @@ class Music21Object(JSONSerializer):
         Merge all elementary, static attributes. Namely, 
         `id` and `groups` attributes from another music21 object. 
         Can be useful for copy-like operations.
+
+        >>> from music21 import *
+        >>> m1 = base.Music21Object()
+        >>> m2 = base.Music21Object()
+        >>> m1.id = 'music21Object1'
+        >>> m1.groups.append("group1")
+        >>> m2.mergeAttributes(m1)
+        >>> m2.id
+        'music21Object1'
+        >>> "group1" in m2.groups
+        True
+
         '''
         self.id = other.id
         self.groups = copy.deepcopy(other.groups)
@@ -1885,7 +2118,7 @@ class Music21Object(JSONSerializer):
 
         # call class to get a new, empty instance
         new = self.__class__()
-        #environLocal.pd(['Music21Object.__deepcopy__', self, id(self)])
+        #environLocal.printDebug(['Music21Object.__deepcopy__', self, id(self)])
         #for name in dir(self):
         for name in self.__dict__.keys():
             if name.startswith('__'):
@@ -1907,7 +2140,7 @@ class Music21Object(JSONSerializer):
             # use _definedContexts own __deepcopy__, but set contained by id
             elif name == '_definedContexts':
                 newValue = copy.deepcopy(part, memo)
-                #environLocal.pd(['copied definedContexts:', newValue._locationKeys])
+                #environLocal.printDebug(['copied definedContexts:', newValue._locationKeys])
                 newValue.containedById = id(new)
                 setattr(new, name, newValue)
             else: # use copy.deepcopy, will call __deepcopy__ if available
@@ -1925,7 +2158,10 @@ class Music21Object(JSONSerializer):
 
 
     def isClassOrSubclass(self, classFilterList):
-        '''Given a class filter list (a list or tuple must be submitted), which may have strings or class objects, determine if this class is of the provided classes or a subclasses. 
+        '''
+        Given a class filter list (a list or tuple must be submitted), 
+        which may have strings or class objects, determine 
+        if this class is of the provided classes or a subclasses. 
         '''
         # NOTE: this is a performance critical operation
         # for performance, only accept lists or tuples
@@ -1954,9 +2190,9 @@ class Music21Object(JSONSerializer):
 
 
     def _getClasses(self):
-        #environLocal.pd(['calling _getClasses'])
+        #environLocal.printDebug(['calling _getClasses'])
         if self._classes is None:
-            #environLocal.pd(['setting self._classes', id(self), self])
+            #environLocal.printDebug(['setting self._classes', id(self), self])
             self._classes = [x.__name__ for x in self.__class__.mro()] 
         return self._classes    
 
@@ -1993,26 +2229,60 @@ class Music21Object(JSONSerializer):
     # look at this object for an atttribute; if not here
     # look up to activeSite
 
-    def searchActiveSiteByAttr(self, attrName):
-        '''If this element is contained within a Stream or other Music21 element, 
-        searchActiveSiteByAttr() permits searching attributes of higher-level
-        objects. The first encountered match is returned, or None if no match. All activeSites are recursively searched upward. 
+    def findAttributeInHierarchy(self, attrName):
+        '''
+        If this element is contained within a Stream (or other Music21 element), 
+        findAttributeInHierarchy() searches the attributes of the activeSite for
+        this attribute and returns its value. 
+        
+        If the activeSite does not have this attribute then 
+        we search its activeSite and up through the hierarchy until we find a value for
+        this attribute.  Or it Returns None if there is no match. 
 
+        >>> from music21 import *
+        >>> m = stream.Measure()
+        >>> m.number = 12
+        >>> n = note.Note()
+        >>> m.append(n)
+        >>> n.activeSite is m
+        True
+        >>> n.findAttributeInHierarchy('number')
+        12
+        >>> print(n.findAttributeInHierarchy('elephant'))
+        None
+        
+        Recursive searches also work.  Here, the Score object is the only one with a 'parts' attribute.
+        
+        >>> p1 = stream.Part()
+        >>> p1.insert(0, m)
+        >>> p2 = stream.Part()
+        >>> s = stream.Score()
+        >>> s.insert(0, p1)
+        >>> s.insert(0, p2)
+        >>> n.activeSite.activeSite is p1
+        True
+        >>> n.activeSite.activeSite.activeSite is s
+        True
+
+        >>> parts = n.findAttributeInHierarchy('parts')
+        >>> (parts[0] is p1, parts[1] is p2)
+        (True, True)
+        
         OMIT_FROM_DOCS
-        this presently only searches upward; it does not search other lower level leafs in a container
-
-        this was formerly called SeachParent, but we might do other types 
+        this was formerly called SeachParent, then searchActiveSiteByAttr, but we might do other types 
         of searches
         '''
         found = None
-        try:
-            found = getattr(self.activeSite, attrName)
-        except AttributeError:
-            # not sure of passing here is the best action
-            environLocal.printDebug(['searchActiveSiteByAttr call raised attribute error for attribute:', attrName])
-            pass
-        if found is None:
-            found = self.activeSite.searchActiveSiteByAttr(attrName)
+        if self.activeSite is not None:
+            #print "got activeSite for %r, %r" % (self, self.activeSite)
+            try:
+                found = getattr(self.activeSite, attrName)
+            except AttributeError:
+                # not sure of passing here is the best action
+                environLocal.printDebug(['findAttributeInHierarchy call raised attribute error for attribute:', attrName])
+                pass
+            if found is None:
+                found = self.activeSite.findAttributeInHierarchy(attrName)
         return found
         
 
@@ -2357,7 +2627,7 @@ class Music21Object(JSONSerializer):
         '''
         if not self._definedContexts.isSite(site):
             raise Music21ObjectException('supplied site (%s) is not a site in this object: %s' % (site, self))
-        #environLocal.pd(['removed location by site:', 'self', self, 'site', site])
+        #environLocal.printDebug(['removed location by site:', 'self', self, 'site', site])
         self._definedContexts.remove(site)
 
         # if activeSite is set to that site, reassign to None
@@ -2389,7 +2659,7 @@ class Music21Object(JSONSerializer):
 
         The `excludeStorageStreams` are SpannerStorage and VariantStorage.
         '''
-        #environLocal.pd(['purging orphans'])
+        #environLocal.printDebug(['purging orphans'])
         orphans = []
         # TODO: how can this be optimized to not use getSites, so as to 
         # not unwrap weakrefs?
@@ -2404,7 +2674,7 @@ class Music21Object(JSONSerializer):
                     # only get those that are not Storage Streams
                     if ('SpannerStorage' not in s.classes 
                         and 'VariantStorage' not in s.classes):
-                        #environLocal.pd(['removing orphan:', s])
+                        #environLocal.printDebug(['removing orphan:', s])
                         orphans.append(id(s))
                 else: # get all 
                     orphans.append(id(s))
@@ -2413,11 +2683,14 @@ class Music21Object(JSONSerializer):
 
 
     def purgeUndeclaredIds(self, declaredIds, excludeStorageStreams=True):
-        '''Remove all sites except those that are declared with the `declaredIds` list. 
+        '''
+        Remove all sites except those that are declared with the `declaredIds` list. 
 
         The `excludeStorageStreams` are SpannerStorage and VariantStorage.
 
         This method is used in Stream serialization to remove lingering sites that are the result of temporary Streams. 
+        
+        TODO: Test!
         '''
         orphans = []
         # TODO: this can be optimized to get actually get sites
@@ -2432,13 +2705,13 @@ class Music21Object(JSONSerializer):
                     # only get those that are not Storage Streams
                     if ('SpannerStorage' not in s.classes 
                         and 'VariantStorage' not in s.classes):
-                        #environLocal.pd(['removing orphan:', s])
+                        #environLocal.printDebug(['removing orphan:', s])
                         orphans.append(idTarget)
                 else: # get all 
                     orphans.append(idTarget)
 
         for i in orphans:   
-            #environLocal.pd(['purgeingUndeclaredIds', i])     
+            #environLocal.printDebug(['purgeingUndeclaredIds', i])     
             self.removeLocationBySiteId(i)        
 
 
@@ -2459,7 +2732,66 @@ class Music21Object(JSONSerializer):
     def getContextByClass(self, className, serialReverseSearch=True,
             callerFirst=None, sortByCreationTime=False, prioritizeActiveSite=True, getElementMethod='getElementAtOrBefore', 
             memo=None):
-        '''Search both DefinedContexts as well as associated objects 
+        '''
+        A very powerful method in music21 of fundamental importance:
+        Returns the element matching the className that is closest to this
+        element in its current hierarchy.  For instance, take this stream of
+        changing time signatures:
+        
+        >>> from music21 import *
+        >>> s1 = converter.parse('tinynotation: 3/4 C4 D E 2/4 F G A B 1/4 c')
+        >>> s2 = s1.makeMeasures()
+        >>> s2.show('t')
+        {0.0} <music21.stream.Measure 1 offset=0.0>
+            {0.0} <music21.meter.TimeSignature 3/4>
+            {0.0} <music21.clef.BassClef>
+            {0.0} <music21.note.Note C>
+            {1.0} <music21.note.Note D>
+            {2.0} <music21.note.Note E>
+        {3.0} <music21.stream.Measure 2 offset=3.0>
+            {0.0} <music21.meter.TimeSignature 2/4>
+            {0.0} <music21.note.Note F>
+            {1.0} <music21.note.Note G>
+        {5.0} <music21.stream.Measure 3 offset=5.0>
+            {0.0} <music21.note.Note A>
+            {1.0} <music21.note.Note B>
+        {7.0} <music21.stream.Measure 4 offset=7.0>
+            {0.0} <music21.meter.TimeSignature 1/4>
+            {0.0} <music21.note.Note C>
+            {1.0} <music21.bar.Barline style=final>
+        
+        
+        Let's get the last two notes of the piece, the B and high c:
+        
+        >>> c = s2.measure(4).notes[0]
+        >>> c
+        <music21.note.Note C>
+        
+        >>> b = s2.measure(3).notes[-1]
+        >>> b
+        <music21.note.Note B>
+        
+        Now when we run `getContextByClass('TimeSignature')` on c, we get a
+        time signature of 1/4.  
+        
+        >>> c.getContextByClass('TimeSignature')
+        <music21.meter.TimeSignature 1/4>
+        
+        Doing what we just did wouldn't be hard to do with other methods,
+        though `getContextByClass` makes it easier.  But the time signature 
+        context for b would be much harder to get without this method, since
+        in order to do it, it searches backwards within the measure, finds that
+        there's nothing there.  It goes to the previous measure and searches that
+        one backwards until it gets the proper TimeSignature of 2/4:
+        
+        >>> b.getContextByClass('TimeSignature')
+        <music21.meter.TimeSignature 2/4>
+        
+        The method is smart enough to stop when it gets to the beginning of the
+        part.  This is all you need to know for most uses.  The rest of the docs
+        are for advanced uses:        
+        
+        The methods searches both DefinedContexts as well as associated objects 
         to find a matching class. Returns None if not match is found. 
 
         The a reference to the caller is required to find the offset of the 
@@ -2478,7 +2810,6 @@ class Music21Object(JSONSerializer):
 
         The `getElementMethod` is a string that selects which Stream method is used to 
         get elements for searching. The strings 'getElementAtOrBefore' and 'getElementBeforeOffset' are currently accepted. 
-
         '''
         #if DEBUG_CONTEXT: print 'X: first call; looking for:', className, id(self), self
         from music21 import stream # needed for exception matching
@@ -2676,13 +3007,20 @@ class Music21Object(JSONSerializer):
     #---------------------------------------------------------------------------
     def _adjacentObject(self, site, classFilterList=None, ascend=True, 
                         beginNearest=True):
-        '''Core method for finding adjacent objects given a single site. 
+        '''
+        Core method for finding adjacent objects given a single site. 
             
-        The `site` argument is a Stream that contains this element. The index of this element if sound in this site, and either the next or previous element, if found, is returned.
+        The `site` argument is a Stream that contains this 
+        element. The index of this element if sound in this site, 
+        and either the next or previous element, if found, is returned.
 
-        If `ascend` is True index values are increment; if False, index values are decremented.
+        If `ascend` is True index values are 
+        incremented; if False, index values are decremented.
     
-        If `beginNearest` is True, index values are searched based on those closest to the caller; if False, the search is done in reverse, from the most remote index toward the caller. This may be useful as an optimization when looking for elements that are far from the caller. 
+        If `beginNearest` is True, index values are searched based 
+        on those closest to the caller; if False, the search is 
+        done in reverse, from the most remote index toward the caller. 
+        This may be useful as an optimization when looking for elements that are far from the caller. 
 
         The `classFilterList` may specify one or more classes as targets.
         '''
@@ -2962,12 +3300,29 @@ class Music21Object(JSONSerializer):
 
     def _getOffset(self):
         '''Get the offset for the activeSite.
+        
+        >>> from music21 import *
+        >>> n = note.Note()
+        >>> m = stream.Measure()
+        >>> m.id = 'm1'
+        >>> m.insert(3.0, n)
+        >>> n.activeSite is m
+        True
+        >>> n.offset
+        3.0
 
+        Still works...
+        
+        >>> n._activeSiteId = 3234234
+        >>> n.offset
+        3.0
+        
+        There is a branch that does slow searches.  See test/testSerialization to have it active.
         '''
         #there is a problem if a new activeSite is being set and no offsets have 
         # been provided for that activeSite; when self.offset is called, 
         # the first case here would match
-        #environLocal.pd(['Music21Object._getOffset', 'self.id', self.id, 'id(self)', id(self), self.__class__])
+        #environLocal.printDebug(['Music21Object._getOffset', 'self.id', self.id, 'id(self)', id(self), self.__class__])
 
         activeSiteId = None
         if self.activeSite is not None:
@@ -2985,8 +3340,8 @@ class Music21Object(JSONSerializer):
         else:
             # try to look for it in all objects
             environLocal.printDebug(['doing a manual activeSite search: probably means that id(self.activeSite) (%s) is not equal to self._activeSiteId (%r)' % (id(self.activeSite), self._activeSiteId)])
-            #environLocal.pd(['activeSite', self.activeSite, 'self._definedContexts.hasSiteId(activeSiteId)', self._definedContexts.hasSiteId(activeSiteId)])
-            #environLocal.pd(['self.hasSite(self.activeSite)', self.hasSite(self.activeSite)])
+            #environLocal.printDebug(['activeSite', self.activeSite, 'self._definedContexts.hasSiteId(activeSiteId)', self._definedContexts.hasSiteId(activeSiteId)])
+            #environLocal.printDebug(['self.hasSite(self.activeSite)', self.hasSite(self.activeSite)])
 
             offset = self._definedContexts.getOffsetByObjectMatch(
                     self.activeSite)
@@ -3022,11 +3377,49 @@ class Music21Object(JSONSerializer):
 
     
     offset = property(_getOffset, _setOffset, 
-        doc = '''The offset property returns the position of this object from 
-        the start of its most recently referenced container (a Stream or 
-        Stream sub-class found in activeSite) in quarter lengths.
+        doc = '''
+        The offset property sets or returns the position of this object 
+        (generally in `quarterLengths`) from the start of its `activeSite`,
+        that is, the most recently referenced `Stream` or `Stream` subclass such
+        as `Part`, `Measure`, or `Voice`.  It is a simpler
+        way of calling `o.getOffsetBySite(o.activeSite)`.
 
-        It can also set the offset for the object if no container has been
+        If we put a `Note` into a 
+
+        >>> from music21 import *
+        >>> n1 = note.Note("D#3")
+        >>> s1 = stream.Measure()
+        >>> s1.insert(10.0, n1)
+        >>> n1.offset
+        10.0
+        >>> n1.activeSite is s1
+        True
+        
+        The most recently referenced `Stream` becomes an object's
+        `activeSite` and thus the place where `.offset` looks to
+        find its number.  
+        
+        >>> s2 = stream.Measure()
+        >>> s2.insert(20.0, n1)
+        >>> n1.offset
+        20.0
+        >>> n1.activeSite is s2
+        True
+
+        Notice though that `.offset` depends on the `.activeSite`
+        which is the most recently accessed/referenced Stream.
+        
+        Here we will iterate over the `elements` in `s1` and we
+        will see that the `.offset` of `n1` now is its offset in
+        `s1` even though we haven't done anything directly to `n1`:
+        
+        >>> for element in s1:
+        ...     pass
+        >>> n1.offset
+        10.0 
+
+        
+        The property can also set the offset for the object if no container has been
         set
 
         >>> from music21 import *
@@ -3264,10 +3657,16 @@ class Music21Object(JSONSerializer):
     #---------------------------------------------------------------------------
     # display and writing
 
-    def write(self, fmt=None, fp=None):
-        '''Write a file.
+    def write(self, fmt=None, fp=None, **keywords): #pragma: no cover
+        '''
+        Write out a file of music notation (or an image, etc.) in a given format.  If
+        fp is specified as a file path then the file will be placed there.  If it is not
+        given then a temporary file will be created.
         
-        A None file path will result in temporary file
+        If fmt is not given then the default of your Environment's 'writeFormat' will
+        be used.  For most people that is musicxml.
+        
+        Returns the full path to the file.
         '''
         if fmt == None: # get setting in environment
             fmt = environLocal['writeFormat']
@@ -3290,7 +3689,8 @@ class Music21Object(JSONSerializer):
             elif format == 'textline':
                 dataStr = self._reprTextLine()
             elif format == 'musicxml':
-                dataStr = self.musicxml
+                from music21.musicxml import translate as musicxmlTranslate
+                dataStr = musicxmlTranslate.music21ObjectToMusicXML(self)
             elif format.startswith('vexflow'):
                 import music21.vexflow
                 dataStr = music21.vexflow.fromObject(self, mode='html')
@@ -3304,8 +3704,9 @@ class Music21Object(JSONSerializer):
             if format in ['lilypond', 'lily']:
                 import music21.lily.translate
                 conv = music21.lily.translate.LilypondConverter()
-                conv.loadObject(self) 
-                dataStr = conv.templatedString.encode('utf-8')
+                if 'coloredVariants' in keywords and keywords['coloredVariants'] is True:
+                    conv.coloredVariants = True
+                dataStr = conv.textFromMusic21Object(self).encode('utf-8')
             
             elif format == 'braille':
                 import music21.braille
@@ -3317,8 +3718,9 @@ class Music21Object(JSONSerializer):
             return fp
 
         elif format == 'midi':
-            # returns a midi file object
-            mf = self.midiFile
+            # returns a midi.MidiFile object
+            from music21.midi import translate as midiTranslate
+            mf = midiTranslate.music21ObjectToMidiFile(self)
             mf.open(fp, 'wb') # write binary
             mf.write()
             mf.close()
@@ -3328,19 +3730,28 @@ class Music21Object(JSONSerializer):
             if fp.endswith('.pdf'):
                 fp = fp[:-4]
             import music21.lily.translate
-            conv = music21.lily.translate.LilypondConverter(self)
+            conv = music21.lily.translate.LilypondConverter()
+            if 'coloredVariants' in keywords and keywords['coloredVariants'] is True:
+                conv.coloredVariants = True
+            conv.loadFromMusic21Object(self)
             return conv.createPDF(fp)
         elif format in ['png', 'lily.png']:
             if fp.endswith('.png'):
                 fp = fp[:-4]
             import music21.lily.translate
-            conv = music21.lily.translate.LilypondConverter(self)
+            conv = music21.lily.translate.LilypondConverter()
+            if 'coloredVariants' in keywords and keywords['coloredVariants'] is True:
+                conv.coloredVariants = True
+            conv.loadFromMusic21Object(self)
             return conv.createPNG(fp)
         elif format in ['svg', 'lily.svg']:
             if fp.endswith('.svg'):
                 fp = fp[:-4]
             import music21.lily.translate
-            conv = music21.lily.translate.LilypondConverter(self)
+            conv = music21.lily.translate.LilypondConverter()
+            if 'coloredVariants' in keywords and keywords['coloredVariants'] is True:
+                conv.coloredVariants = True
+            conv.loadFromMusic21Object(self)
             return conv.createSVG(fp)
         else:
             raise Music21ObjectException('cannot yet support writing in the %s format' % format)
@@ -3363,7 +3774,7 @@ class Music21Object(JSONSerializer):
         '''
         return self.__repr__()
 
-    def show(self, fmt=None, app=None):
+    def show(self, fmt=None, app=None, **keywords): #pragma: no cover
         '''
         Displays an object in a format provided by the 
         fmt argument or, if not provided, the format set in the user's Environment 
@@ -3380,7 +3791,7 @@ class Music21Object(JSONSerializer):
             vexflow
 
         N.B. score.write('lily') returns a bare lilypond file,
-        score.show('lily') gives a png of a rendered lilypond file.
+        score.show('lily') runs it through lilypond and displays it as a png.
 
 
         OMIT_FROM_DOCS        
@@ -3412,17 +3823,26 @@ class Music21Object(JSONSerializer):
         elif fmt in ['lily.pdf', 'pdf']:
             #return self.lily.showPDF()
             import music21.lily.translate
-            conv = music21.lily.translate.LilypondConverter(self)
+            conv = music21.lily.translate.LilypondConverter()
+            if 'coloredVariants' in keywords and keywords['coloredVariants'] is True:
+                conv.coloredVariants = True
+            conv.loadFromMusic21Object(self)
             environLocal.launch('pdf', conv.createPDF(), app=app)
         elif fmt in ['lily.png', 'png', 'lily', 'lilypond']:
             # TODO check that these use environLocal 
             import music21.lily.translate
-            conv = music21.lily.translate.LilypondConverter(self)
+            conv = music21.lily.translate.LilypondConverter()
+            if 'coloredVariants' in keywords and keywords['coloredVariants'] is True:
+                conv.coloredVariants = True
+            conv.loadFromMusic21Object(self)
             return conv.showPNG()
         elif fmt in ['lily.svg', 'svg']:
             # TODO check that these use environLocal 
             import music21.lily.translate
-            conv = music21.lily.translate.LilypondConverter(self)
+            conv = music21.lily.translate.LilypondConverter()
+            if 'coloredVariants' in keywords and keywords['coloredVariants'] is True:
+                conv.coloredVariants = True
+            conv.loadFromMusic21Object(self)
             return conv.showSVG()
 
         elif fmt in ['musicxml', 'midi']: # a format that writes a file
@@ -3519,9 +3939,31 @@ class Music21Object(JSONSerializer):
         >>> c.expressions
         [<music21.expressions.Trill>, <music21.expressions.Fermata>]
 
+
+        Make sure that ties remain as they should be:
+        
+        >>> d = note.Note('D#4')
+        >>> d.duration.quarterLength = 3.0
+        >>> d.tie = tie.Tie('start')
+        >>> e, f = d.splitAtQuarterLength(2.0)
+        >>> e.tie, f.tie
+        (<music21.tie.Tie start>, <music21.tie.Tie continue>) 
+
+        Should be the same for chords...
+        
+        >>> g = chord.Chord(['C4', 'E4', 'G4'])
+        >>> g.duration.quarterLength = 3.0
+        >>> g._components[1].tie = tie.Tie('start')
+        >>> h, i = g.splitAtQuarterLength(2.0)
+        >>> for j in range(0,3):
+        ...   print (h._components[j].tie, i._components[j].tie)
+        (<music21.tie.Tie start>, <music21.tie.Tie stop>)
+        (<music21.tie.Tie start>, <music21.tie.Tie continue>)
+        (<music21.tie.Tie start>, <music21.tie.Tie stop>)
         '''
-        # was note.splitNoteAtPoint
         from music21 import duration
+        # needed for temporal manipulations; not music21 objects
+        from music21 import tie
 
         if self.duration == None:
             raise Exception('cannot split an element that has a Duration of None')
@@ -3640,7 +4082,8 @@ class Music21Object(JSONSerializer):
 
     def splitByQuarterLengths(self, quarterLengthList, addTies=True, 
         displayTiedAccidentals=False):
-        '''Given a list of quarter lengths, return a list of 
+        '''
+        Given a list of quarter lengths, return a list of 
         Music21Object objects, copied from this Music21Object, 
         that are partitioned and tied with the specified quarter 
         length list durations.
@@ -3652,6 +4095,9 @@ class Music21Object(JSONSerializer):
         >>> [n.quarterLength for n in post]
         [1.0, 1.0, 1.0]
         '''
+        # needed for temporal manipulations; not music21 objects
+        from music21 import tie
+
         if self.duration == None:
             raise Music21ObjectException('cannot split an element that has a Duration of None')
 
@@ -3728,8 +4174,13 @@ class Music21Object(JSONSerializer):
 
     def splitAtDurations(self):
         '''
-        Takes a Note and returns a list of Notes with only a single
-        duration.DurationUnit in each. Ties are added. 
+        Takes a Music21Object (e.g., a note.Note) and returns a list of similar
+        objects with only a single
+        duration.DurationUnit in each. Ties are added if the object supports ties. 
+
+        Articulations only appear on the first note.  Same with lyrics.
+        
+        Fermatas should be on last note, but not done yet.
 
         >>> from music21 import *
         >>> a = note.Note()
@@ -3747,40 +4198,70 @@ class Music21Object(JSONSerializer):
         'half'
         >>> b[1].duration.type
         'whole'
+        
+        
+        >>> c = note.Note()
+        >>> c.quarterLength = 2.5
+        >>> d, e = c.splitAtDurations()
+        >>> d.duration.type
+        'half'
+        >>> e.duration.type
+        'eighth'
+        >>> d.tie.type
+        'start'
+        >>> print e.tie
+        <music21.tie.Tie stop>
+        
+        Assume c is tied to the next note.  Then the last split note should also be tied
+        
+        >>> c.tie = tie.Tie()
+        >>> d, e = c.splitAtDurations()
+        >>> e.tie.type
+        'start'
+        
+        
+        Rests have no ties:
+        
+        >>> f = note.Rest()
+        >>> f.quarterLength = 2.5
+        >>> g, h = f.splitAtDurations()
+        >>> (g.duration.type, h.duration.type)
+        ('half', 'eighth')
+        >>> g.tie is None
+        True
         '''
-        # Note: this method is not used used in any critical code and could possible be removed.
+        # needed for temporal manipulations; not music21 objects
+        from music21 import tie
 
         if self.duration == None:
             raise Exception('cannot split an element that has a Duration of None')
 
         returnNotes = []
+        linkageType = self.duration.linkage
+        for i in range(len(self.duration.components)):
+            tempNote = copy.deepcopy(self)
+            if i != 0:
+                # clear articulations from remaining parts
+                if hasattr(tempNote, 'articulations'):
+                    tempNote.articulations = []
+                if hasattr(tempNote, 'lyrics'):
+                    tempNote.lyrics = []
 
-        if len(self.duration.components) == (len(self.duration.linkages) - 1):
-            for i in range(len(self.duration.components)):
-                tempNote = copy.deepcopy(self)
-                if i != 0:
-                    # clear articulations from remaining parts
-                    if hasattr(tempNote, 'articulations'):
-                        tempNote.articulations = []
-
-                
-                # note that this keeps durations 
-                tempNote.duration = self.duration.components[i]
-                if i != (len(self.duration.components) - 1):
-                    tempNote.tie = self.duration.linkages[i]                
-                    # last note just gets the tie of the original Note
-                returnNotes.append(tempNote)
-        else: 
-            for i in range(len(self.duration.components)):
-                tempNote = copy.deepcopy(self)
-                tempNote.duration = self.duration.components[i]
-                if i != (len(self.duration.components) - 1):
+            tempNote.duration = self.duration.components[i]
+            if i != (len(self.duration.components) - 1): # if not last note, use linkage
+                if linkageType is None:
+                    pass
+                elif linkageType == 'tie':
                     tempNote.tie = tie.Tie()
-                else:
-                    # last note just gets the tie of the original Note
-                    if self.tie is None:
-                        self.tie = tie.Tie("stop")
-                returnNotes.append(tempNote)                
+            else:
+                # last note just gets the tie of the original Note
+                if hasattr(self, 'tie') and self.tie is None:
+                    tempNote.tie = tie.Tie("stop")
+                elif hasattr(self, 'tie') and self.tie is not None and self.tie.type == 'stop':
+                    tempNote.tie = tie.Tie("stop")
+                elif hasattr(self, 'tie'):
+                    tempNote.tie = copy.deepcopy(self.tie)
+            returnNotes.append(tempNote)                
         return returnNotes
 
 
@@ -3791,7 +4272,8 @@ class Music21Object(JSONSerializer):
 
 
     def _getMeasureNumber(self):
-        '''If this object is contained in a Measure, return the measure number
+        '''
+        If this object is contained in a Measure, return the measure number
         '''
         mNumber = None # default for not defined
         if self.activeSite != None and self.activeSite.isMeasure:
@@ -3805,14 +4287,59 @@ class Music21Object(JSONSerializer):
         return mNumber
 
     measureNumber = property(_getMeasureNumber, 
-        doc = '''Return the measure number of a Measure that contains this object. 
+        doc = '''
+        Return the measure number of a Measure that contains this object if the object is in a measure. 
+        
+        Returns None if the object is not in a measure.  Also note that by default Measure objects
+        have measure number 0.
+        
+        If an object belongs to multiple measures (not in the same hierarchy...) then it returns the
+        measure number of the :meth:`~music21.base.Music21Object.activeSite` if that is a 
+        :class:`~music21.stream.Measure` object.  Otherwise it will use :meth:`~music21.base.Music21Object.getContextByClass`
+        to find the number of the measure it was most recently added to. 
+        
+        >>> from music21 import *
+        >>> m = stream.Measure()
+        >>> m.number = 12
+        >>> n = note.Note()
+        >>> m.append(n)
+        >>> n.measureNumber
+        12
+        
+        >>> n2 = note.Note()
+        >>> n2.measureNumber is None
+        True
+        >>> m2 = stream.Measure()
+        >>> m2.append(n2)
+        >>> n2.measureNumber
+        0
+        
+        This updates live if the measure number changes:
+        
+        >>> m2.number = 11
+        >>> n2.measureNumber
+        11
+        
+        
+        The most recent measure added to is used unless activeSite is a measure:
+        
+        >>> m.append(n2)
+        >>> n2.measureNumber
+        12
+        >>> n2.activeSite = m2
+        >>> n2.measureNumber
+        11
         ''')  
 
 
     def _getMeasureOffset(self, includeMeasurePadding=True):
-        '''Try to obtain the nearest Measure that contains this object, and return the offset within that Measure.
+        '''
+        Try to obtain the nearest Measure that contains this object, 
+        and return the offset of this object within that Measure.
 
-        If a Measure is found, and that Measure has padding defined as `paddingLeft`, padding will be added to the native offset gathered from the object. 
+        If a Measure is found, and that Measure has padding 
+        defined as `paddingLeft` (for pickup measures, etc.), padding will be added to the 
+        native offset gathered from the object. 
 
         >>> from music21 import *
         >>> n = note.Note()
@@ -3850,7 +4377,10 @@ class Music21Object(JSONSerializer):
         return offsetLocal
 
     def _getMeasureOffsetOrMeterModulusOffset(self, ts):
-        '''Return the measure offset based on a Measure, if it exists, otherwise based on meter modulus of the TimeSignature. This assumes that a TimeSignature has already been found.
+        '''
+        Return the measure offset based on a Measure, if it exists, 
+        otherwise based on meter modulus of the TimeSignature. 
+        This assumes that a TimeSignature has already been found.
 
         >>> from music21 import *
         >>> m = stream.Measure()
@@ -3892,7 +4422,9 @@ class Music21Object(JSONSerializer):
             return post
 
     def _getBeat(self):
-        '''Return a beat designation based on local Measure and TimeSignature
+        '''
+        Return a beat designation based on local 
+        Measure and TimeSignature
 
         >>> from music21 import *
         >>> n = note.Note()
@@ -3918,7 +4450,8 @@ class Music21Object(JSONSerializer):
 
 
     beat = property(_getBeat,  
-        doc = '''Return the beat of this object as found in the most 
+        doc = '''
+        Return the beat of this object as found in the most 
         recently positioned Measure. Beat values count from 1 and 
         contain a floating-point designation between 0 and 1 to 
         show proportional progress through the beat.
@@ -4147,7 +4680,8 @@ class Music21Object(JSONSerializer):
         return mm.durationToSeconds(self.duration)
 
     seconds = property(_getSeconds, _setSeconds, doc = '''
-        Get or set the the duration of this object in seconds, assuming that this object has a :class:`~music21.tempo.MetronomeMark` or :class:`~music21.tempo.MetricModulation` in its past context.
+        Get or set the the duration of this object in seconds, assuming 
+        that this object has a :class:`~music21.tempo.MetronomeMark` or :class:`~music21.tempo.MetricModulation` in its past context.
 
         >>> from music21 import *
         >>> s = stream.Stream()
@@ -4161,7 +4695,7 @@ class Music21Object(JSONSerializer):
 #-------------------------------------------------------------------------------
 class ElementWrapper(Music21Object):
     '''
-    An element wraps any object that is not a 
+    An ElementWrapper is a way of containing any object that is not a 
     :class:`~music21.base.Music21Object`, so that that object can
     be positioned within a :class:`~music21.stream.Stream`.
     
@@ -4206,19 +4740,27 @@ class ElementWrapper(Music21Object):
     3.0 1.0 2 thisSound_16.wav
     6.0 1.0 2 thisSound_12.wav
     9.0 1.0 2 thisSound_8.wav    
-
-
-
-    OMIT_FROM_DOCS
-    because in the new (29/11/2009) object model, ElementWrapper should only be used
-    to wrap a non music21-object it should be removed from most docs.
+    
+    
+    Test representation of an ElementWrapper
+    
+    >>> for i, j in enumerate(s.getElementsByClass('ElementWrapper')):
+    ...     if i == 2:
+    ...         j.id = None
+    ...     else:
+    ...         j.id = str(i) + "_wrapper"
+    ...     if i <=2:
+    ...         print j
+    <ElementWrapper id=0_wrapper offset=0.0 obj="<...Wave_read object...">
+    <ElementWrapper id=1_wrapper offset=1.0 obj="<...Wave_read object...">
+    <ElementWrapper offset=2.0 obj="<...Wave_read object...">
     '''
     obj = None
     _id = None
 
     _DOC_ORDER = ['obj']
     _DOC_ATTR = {
-    'obj': 'The object this wrapper wraps.',
+    'obj': 'The object this wrapper wraps. It should not be a Music21Object.',
     }
 
     def __init__(self, obj = None):
@@ -4323,7 +4865,8 @@ class ElementWrapper(Music21Object):
 
 
     def isTwin(self, other):
-        '''A weaker form of equality.  a.isTwin(b) is true if
+        '''
+        A weaker form of equality.  a.isTwin(b) is true if
         a and b store either the same object OR objects that are equal.
         In other words, it is essentially the same object in a different context
              
@@ -5331,10 +5874,10 @@ class Test(unittest.TestCase):
         n1 = m2[-1] # last element is a note
         n2 = m4[-1] # last element is a note
 
-        #environLocal.pd(['getContexByClass()'])
-        #self.assertEqual(str(n1.getContextByClass('TimeSignature')), '3/4') 
-        environLocal.pd(['getContexByClass()'])
-        self.assertEqual(str(n2.getContextByClass('TimeSignature')), '3/4') 
+        #environLocal.printDebug(['getContextByClass()'])
+        #self.assertEqual(str(n1.getContextByClass('TimeSignature')), '<music21.meter.TimeSignature 3/4>') 
+        environLocal.printDebug(['getContextByClass()'])
+        self.assertEqual(str(n2.getContextByClass('TimeSignature')), '<music21.meter.TimeSignature 3/4>') 
 
 
     def testNextA(self):
@@ -5389,9 +5932,9 @@ class Test(unittest.TestCase):
         # getting time signature and key sig
         p1 = s.parts[0]
         nLast = p1.flat.notes[-1]
-        self.assertEqual(str(nLast.previous('TimeSignature')), '4/4')
+        self.assertEqual(str(nLast.previous('TimeSignature')), '<music21.meter.TimeSignature 4/4>')
         self.assertEqual(str(nLast.previous('KeySignature')), 
-            'sharps 3, mode minor')
+            '<music21.key.KeySignature of 3 sharps, mode minor>')
         
         # iterating at the Measure level, showing usage of flattenLocalSites
         measures = s.parts[0].getElementsByClass('Measure')
@@ -5485,7 +6028,7 @@ def mainTest(*testClasses):
     if 'onlyDocTest' in sys.argv:
         testClasses = [] # remove cases
     for t in testClasses:
-        if not isinstance(t, str):
+        if not isinstance(t, basestring):
             if displayNames:
                 for tName in unittest.defaultTestLoader.getTestCaseNames(t):
                     print('Unit Test Method: %s' % tName)

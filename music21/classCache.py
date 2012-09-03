@@ -5,21 +5,21 @@
 #
 # Authors:      Christopher Ariza
 #
-# Copyright:    (c) 2011 The music21 Project
+# Copyright:    Copyright © 2011 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 
 import unittest
 import collections
 
-import music21
+from music21 import exceptions21
 
 
 from music21 import environment
 _MOD = "classCache.py"  
 environLocal = environment.Environment(_MOD)
 
-class ClassCacheException(Exception):
+class ClassCacheException(exceptions21.Music21Exception):
     pass
 
 
@@ -199,7 +199,7 @@ class ClassCache(object):
         ClassCacheException: can only process single class names given as a string
         '''
         matchKeys = []
-        #environLocal.pd(['getElementsByClass', 'classFilterList', classFilterList])
+        #environLocal.printDebug(['getElementsByClass', 'classFilterList', classFilterList])
 
         # for now, can only match a single class, as this will be in the 
         # correct order
@@ -221,7 +221,7 @@ class ClassCache(object):
 
 #         if matchKeys == []:
 #             for classNameOrStr in classFilterList:
-#                 #environLocal.pd(['classNameOrStr', classNameOrStr])
+#                 #environLocal.printDebug(['classNameOrStr', classNameOrStr])
 #                 if isinstance(classNameOrStr, str):
 #                     for r in self.repositories.values(): 
 #                         if classNameOrStr in r.classes:
@@ -234,7 +234,7 @@ class ClassCache(object):
 #                         if issubclass(classNameOrStr, r.classObj):
 #                             # they key is always the first class
 #                             matchKeys.append(r.classes[0])
-        #environLocal.pd(['matchKeys', matchKeys, 'self.repositories.keys()', self.repositories.keys()])
+        #environLocal.printDebug(['matchKeys', matchKeys, 'self.repositories.keys()', self.repositories.keys()])
 
 #         for key in matchKeys:
 #             # rather than directly assign, can build list of offset/value?
@@ -378,6 +378,7 @@ _DOC_ORDER = []
 
 if __name__ == "__main__":
     # sys.arg test options will be used in mainTest()
+    import music21
     music21.mainTest(Test)
 
 

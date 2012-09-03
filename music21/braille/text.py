@@ -1,19 +1,18 @@
 # -*- coding: utf-8 -*-
-#!/usr/bin/python
 #-------------------------------------------------------------------------------
 # Name:         text.py
 # Purpose:      music21 class which allows for accurate formatting of braille transcription
 # Authors:      Jose Cabal-Ugaz
 #
-# Copyright:    (c) 2011 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2011 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 
 import collections
-import music21
 import unittest
 
 from music21.braille import lookup
+from music21 import exceptions21
 
 symbols = lookup.symbols
 binary_dots = lookup.binary_dots
@@ -387,7 +386,7 @@ class BrailleTextLine():
     
 #-------------------------------------------------------------------------------        
 
-class BrailleTextException(music21.Music21Exception):
+class BrailleTextException(exceptions21.Music21Exception):
     pass
     
 #-------------------------------------------------------------------------------
@@ -398,6 +397,7 @@ class Test(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    import music21
     music21.mainTest(Test)
 
 #------------------------------------------------------------------------------

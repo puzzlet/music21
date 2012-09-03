@@ -1,4 +1,4 @@
-import music21
+# -*- coding: utf-8 -*-
 import unittest
 
 from music21 import pitch
@@ -42,6 +42,7 @@ class Test(unittest.TestCase):
         pass
 
 if __name__ == "__main__":
+    import music21
     music21.mainTest(Test)
 
 #------------------------------------------------------------------------------

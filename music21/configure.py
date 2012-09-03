@@ -5,7 +5,7 @@
 #
 # Authors:      Christopher Ariza
 #
-# Copyright:    (c) 2011 The music21 Project
+# Copyright:    Copyright © 2011-2012 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 
@@ -18,13 +18,6 @@ import threading
 import unittest
 import textwrap
 import distutils
-
-hasWebbrowser = False
-try:
-    import webbrowser
-    hasWebbrowser = True
-except:
-    pass
 
 try:
     import readline
@@ -41,6 +34,8 @@ except:
 # all modules before installation
 from music21 import common
 from music21 import environment
+from music21 import exceptions21
+
 _MOD = "configure.py"
 environLocal = environment.Environment(_MOD)
 
@@ -168,7 +163,8 @@ def findInstallationsEggInfoStr():
 
 
 def getUserData():
-    '''Return a dictionary with user data
+    '''
+    Return a dictionary with user data
     '''
     post = {}
     try:
@@ -197,7 +193,8 @@ def getUserData():
 
 
 def _crawlPathUpward(start, target):
-    '''Ascend up paths given a start; return when target file has been found.
+    '''
+    Ascend up paths given a start; return when target file has been found.
     '''
     lastDir = start
     thisDir = lastDir
@@ -219,7 +216,8 @@ def _crawlPathUpward(start, target):
 
 
 def findSetup():    
-    '''Find the setup.py script 
+    '''
+    Find the setup.py script and returns the path to the setup.py file.
     '''
     # find setup.py
     # look in current directory and ascending
@@ -252,6 +250,10 @@ def findSetup():
 #-------------------------------------------------------------------------------
 # error objects, not exceptions
 class DialogError(object):
+    '''
+    DialogError is a normal object, not an Exception.
+    '''
+    
     def __init__(self, src=None):
         self.src = src
     def __repr__(self):
@@ -259,23 +261,33 @@ class DialogError(object):
 
 
 class KeyInterruptError(DialogError):
+    '''
+    Subclass of DialogError that deals with Keyboard Interruptions. 
+    '''
+    
     def __init__(self, src=None):
         DialogError.__init__(self, src=src)
 
 class IncompleteInput(DialogError):
-    '''The user has provided incomplete input that cannot be understood. 
+    '''
+    Subclass of DialogError that runs when the user has provided 
+    incomplete input that cannot be understood. 
     '''
     def __init__(self, src=None):
         DialogError.__init__(self, src=src)
 
 class NoInput(DialogError):
-    '''The user has provided no input, and there is not a default.
+    '''
+    Subclass of DialogError for when the user has provided no input, and there is not a default.
     '''
     def __init__(self, src=None):
         DialogError.__init__(self, src=src)
 
 class BadConditions(DialogError):
-    '''The users system does support the action of the dialog: something is missing or otherwise prohibits operation. 
+    '''
+    Subclass of DialogError for when the user's system does support the 
+    action of the dialog: something is missing or 
+    otherwise prohibits operation. 
     '''
     def __init__(self, src=None):
         DialogError.__init__(self, src=src)
@@ -285,7 +297,7 @@ class BadConditions(DialogError):
 
 
 #-------------------------------------------------------------------------------
-class DialogException(Exception):
+class DialogException(exceptions21.Music21Exception):
     pass
 
 #-------------------------------------------------------------------------------
@@ -750,6 +762,13 @@ class AskOpenInBrowser(YesOrNo):
         '''
         result = self.getResult()
         if result is True: # if True            
+            hasWebbrowser = False
+            try:
+                import webbrowser
+                hasWebbrowser = True
+            except:
+                pass
+            
             if hasWebbrowser is True:
                 webbrowser.open_new(self._urlTarget)
             else:
@@ -788,7 +807,7 @@ class AskInstall(YesOrNo):
             self._writeToUser(['You must authorize writing in the following directory:', getSitePackages(), ' ', 'Please provide your user password to complete this opperation.', ''])
 
             stdoutSrc = sys.stdout
-            stderrSrc = sys.stderr
+            #stderrSrc = sys.stderr
 
             fileLikeOpen = StringIO.StringIO()
             sys.stdout = fileLikeOpen
@@ -800,7 +819,7 @@ class AskInstall(YesOrNo):
 
             fileLikeOpen.close()
             sys.stdout = stdoutSrc
-            sys.stderr = stderrSrc
+            #sys.stderr = stderrSrc
             return post
 
     def _performAction(self, simulate=False):
@@ -865,6 +884,13 @@ class AskSendInstallationReport(YesOrNo):
         '''
         result = self.getResult()
         if result is True:
+            hasWebbrowser = False
+            try:
+                import webbrowser
+                hasWebbrowser = True
+            except:
+                pass
+
             if hasWebbrowser is True:
                 webbrowser.open(self._getMailToStr())
             else:

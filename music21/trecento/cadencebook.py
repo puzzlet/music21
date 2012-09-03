@@ -1,11 +1,12 @@
+# -*- coding: utf-8 -*-
 #-------------------------------------------------------------------------------
 # Name:         trecento/cadencebook.py
 # Purpose:      classes for reading in trecento cadences from a MS Excel spreadsheet
 #
 # Authors:      Michael Scott Cuthbert
 #
-# Copyright:    (c) 2009 The music21 Project
-# License:      LGPL
+# Copyright:    Copyright © 2009, 2012 Michael Scott Cuthbert and the music21 Project
+# License:      LGPL, see license.txt
 #-------------------------------------------------------------------------------
 '''
 The file trecento/cadences.xls contains (in a modified TinyNotation format) incipits
@@ -21,12 +22,8 @@ import random
 import re
 import os
 
-import music21
-import music21.duration
-from music21.duration import DurationException
-
+from music21 import duration
 from music21 import expressions
-from music21 import lily
 from music21 import metadata
 from music21 import meter
 from music21 import note
@@ -35,7 +32,6 @@ from music21.ext import xlrd
 from music21.trecento import trecentoCadence
 from music21.trecento import polyphonicSnippet
 from music21.trecento.polyphonicSnippet import *
-
 
 class TrecentoSheet(object):
     '''
@@ -69,6 +65,7 @@ class TrecentoSheet(object):
             try:
                 xbook = xlrd.open_workbook(self.filename)        
             except IOError:
+                import music21
                 xbook = xlrd.open_workbook(music21.trecento.__path__[0] + os.sep + self.filename)
 
             
@@ -298,7 +295,12 @@ class TrecentoCadenceWork(object):
         beginSnippetPositions -- a list of the excel spreadsheet columns in which an incipit of some section can be found. (default = [8])
         endSnippetPositions   -- a list of the excel spreadsheet columns in which an cadence of some section can be found. (default = [])
     
-
+    OMIT_FROM_DOCS
+    
+    test just creating an empty TrecentoCadenceWork:
+    
+    >>> from music21 import *
+    >>> tcw = trecento.cadencebook.TrecentoCadenceWork()
     '''
     beginSnippetPositions = [8]
     endSnippetPositions = []
@@ -322,9 +324,12 @@ class TrecentoCadenceWork(object):
 
         self.snippets = []
         self.snippets.append(self.incipit)
-        otherS = self.getOtherSnippets()
-        if otherS is not None:
-            self.snippets += otherS        
+        try:
+            otherS = self.getOtherSnippets()
+            if otherS is not None:
+                self.snippets += otherS        
+        except IndexError: # no rowvalues, etc. probably from documentation building...
+            pass
                 
         if isinstance(self.fischerNum, float):
             self.fischerNum = int(self.fischerNum)
@@ -353,6 +358,68 @@ class TrecentoCadenceWork(object):
                 self.totalVoices = int(self.encodedVoices[0])
             except (ValueError, IndexError):
                 pass
+
+    def asOpus(self):
+        '''
+        returns all snippets as a music21 opus object
+
+        >>> from music21 import *
+        >>> deduto = trecento.cadencebook.BallataSheet().workByTitle('deduto')
+        >>> deduto.title
+        u'Deduto sey a quel'
+        >>> dedutoScore = deduto.asOpus()
+        >>> dedutoScore
+        <music21.stream.Opus ...>
+        >>> #_DOCS_SHOW dedutoScore.show('lily.png')
+
+        '''
+        o = stream.Opus()
+        md = metadata.Metadata()
+        o.insert(0, md)
+        o.metadata.composer = self.composer
+        o.metadata.title = self.title   
+        
+        currentTs = None
+        bs = self.snippets
+        for thisSnippet in bs:
+            if thisSnippet is None:
+                continue
+            if thisSnippet.tenor is None and thisSnippet.cantus is None and thisSnippet.contratenor is None:
+                continue
+            s = stream.Score()
+            for j in range(self.totalVoices):
+                s.insert(0, stream.Part())
+
+            timeSig = thisSnippet.flat.getElementsByClass(meter.TimeSignature)[0]
+            for partNumber, snippetPart in enumerate(thisSnippet.getElementsByClass('TrecentoCadenceStream')):
+                if thisSnippet.snippetName != "" and partNumber == self.totalVoices - 1:
+                    textEx = expressions.TextExpression(thisSnippet.snippetName)
+                    textEx.positionVertical = 'below'
+                    if 'FrontPaddedSnippet' in thisSnippet.classes:
+                        if snippetPart.hasMeasures():
+                            snippetPart.getElementsByClass('Measure')[-1].insert(0, textEx)
+                        else:
+                            snippetPart.append(textEx)
+                    else:
+                        if snippetPart.hasMeasures():
+                            snippetPart.getElementsByClass('Measure')[0].insert(0, textEx)
+                        else:
+                            snippetPart.insert(0, textEx)
+#                if currentTs is None or timeSig != currentTs:
+#                    s.append(timeSig)
+#                    currentTs = timeSig
+                try:
+                    currentScorePart = s.parts[partNumber]
+                except IndexError:
+                    continue  # error in coding
+                for thisElement in snippetPart:
+                    if 'TimeSignature' in thisElement.classes:
+                        continue
+                    currentScorePart.append(thisElement) 
+            o.insert(0, s)
+        return o
+        
+        
 
     def asScore(self):
         '''
@@ -543,8 +610,8 @@ class TrecentoCadenceWork(object):
             if (thisVoice):
                 try:
                     returnBlock[i] = trecentoCadence.TrecentoCadenceStream(thisVoice, currentTimeSig)
-                except DurationException, (value):
-                    raise DurationException("Problems in line %s: specifically %s" % (thisVoice,  value))
+                except duration.DurationException, (value):
+                    raise duration.DurationException("Problems in line %s: specifically %s" % (thisVoice,  value))
 #                except Exception, (value):
 #                    raise Exception("Unknown Problems in line %s: specifically %s" % (thisVoice,  value))
 
@@ -627,19 +694,6 @@ class TrecentoCadenceWork(object):
                     streams.append(thisStream)
         return streams
     
-    def getAllLily(self):
-        '''
-        Get the total lily output for the entire work
-        '''
-        import music21.lily.translate
-        conv = music21.lily.translate.LilypondConverter()
-        allLily = u''
-        for snippet in self.snippets:
-            if snippet is not None:
-                conv.loadObject(snippet)
-                allLily += conv.allString 
-        return allLily
-
     def pmfcPageRange(self):
         '''
         returns a nicely formatted string giving the page numbers in PMFC where the piece
@@ -740,8 +794,8 @@ class TestExternal(unittest.TestCase):
         cs1 = CredoSheet() #filename = r'd:\docs\trecento\fischer\cadences.xls')
     #    cs1 = BallataSheet()
         credo1 = cs1.makeWork(2)
-        conv = lily.translate.LilypondConverter()
-        conv.allString = credo1.getAllLily()
+        opusCredo1 = credo1.asOpus()
+        opusCredo1.show('lily.png')
         #conv.showPNG()
 
     def testBallata(self):
@@ -751,9 +805,8 @@ class TestExternal(unittest.TestCase):
         
         cs1 = BallataSheet() #filename = r'd:\docs\trecento\fischer\cadences.xls')
         ballata1 = cs1.makeWork(58)
-        conv = lily.translate.LilypondConverter()
-        conv.allString = ballata1.getAllLily()
-        conv.showSVG()
+        opusBallata1 = ballata1.asOpus()
+        opusBallata1.show('lily.svg')
 
 
     def xtestSnippetShow(self):
@@ -807,7 +860,8 @@ class TestExternal(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    music21.mainTest(Test, TestExternal)
+    import music21
+    music21.mainTest(Test) #, TestExternal)
 
 
 #------------------------------------------------------------------------------

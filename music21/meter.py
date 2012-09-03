@@ -6,7 +6,7 @@
 # Authors:      Christopher Ariza
 #               Michael Scott Cuthbert
 #
-# Copyright:    (c) 2009-2012 The music21 Project
+# Copyright:    Copyright © 2009-2012 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 
@@ -19,13 +19,11 @@ import unittest, doctest
 import re, copy
 #import fractions # available in 2.6 and greater
 
-import music21
-
-from music21 import common
-from music21 import duration
+from music21 import base
 from music21 import beam
-from music21 import musicxml
-from music21.musicxml import translate as musicxmlTranslate
+from music21 import common
+from music21 import exceptions21
+from music21 import duration
 from music21 import environment
 _MOD = 'meter.py'
 environLocal = environment.Environment(_MOD)
@@ -279,7 +277,7 @@ def proportionToFraction(value):
 
 
 #-------------------------------------------------------------------------------
-class MeterException(Exception):
+class MeterException(exceptions21.Music21Exception):
     pass
 
 class TimeSignatureException(MeterException):
@@ -1542,7 +1540,13 @@ class MeterSequence(MeterTerminal):
         else:
             if not common.isNum(value):
                 raise MeterException('weight values must be numbers')
-            totalRatio = self._numerator / float(self._denominator)
+            try:
+                totalRatio = self._numerator / float(self._denominator)
+            except TypeError:
+                raise MeterException("Something wrong with the type of this numerator %s %s or this denominator %s %s" % 
+                                     (self._numerator, type(self._numerator),
+                                      self._denominator, type(self._denominator)))
+                
             for mt in self._partition:
             #for mt in self:
                 partRatio = mt._numerator / float(mt._denominator)
@@ -2081,7 +2085,7 @@ class MeterSequence(MeterTerminal):
 
 
 #-------------------------------------------------------------------------------
-class TimeSignature(music21.Music21Object):
+class TimeSignature(base.Music21Object):
     '''The TimeSignature object is multi-faceted representation of nested hierarchical structures.
 
     For complete details on using this object, see :ref:`overviewMeters`.
@@ -2090,6 +2094,8 @@ class TimeSignature(music21.Music21Object):
 
     >>> from music21 import *
     >>> ts = TimeSignature('3/4')
+    >>> ts.ratioString
+    '3/4'
     >>> ts.beatCount
     3
     >>> ts.beatCountName
@@ -2133,6 +2139,8 @@ class TimeSignature(music21.Music21Object):
 
 
     >>> ts = meter.TimeSignature('6/8')
+    >>> print ts.ratioString
+    6/8
     >>> ts.beatCount
     2
     >>> ts.beatDuration.quarterLength
@@ -2174,7 +2182,7 @@ class TimeSignature(music21.Music21Object):
         }
     
     def __init__(self, value='4/4', partitionRequest=None):
-        music21.Music21Object.__init__(self)
+        base.Music21Object.__init__(self)
 
         # whether the TimeSignature object is inherited from 
         self.inherited = False 
@@ -2195,11 +2203,24 @@ class TimeSignature(music21.Music21Object):
             duration.typeFromNumDict[16], duration.typeFromNumDict[32], 
             duration.typeFromNumDict[64], duration.typeFromNumDict[128]]
 
-    def __str__(self):
+    def _getRatioString(self):
+        '''
+        returns a simple string representing the time signature ratio:
+        
+        >>> from music21 import *
+        >>> threeFour = meter.TimeSignature('3/4')
+        >>> threeFour.ratioString
+        '3/4'
+        '''
         return str(int(self.numerator)) + "/" + str(int(self.denominator))
 
+    ratioString = property(_getRatioString)
+
+    def __str__(self):
+        return self.__repr__()
+    
     def __repr__(self):
-        return "<music21.meter.TimeSignature %s>" % self.__str__()
+        return "<music21.meter.TimeSignature %s>" % self.ratioString
 
 
     def ratioEqual(self, other):
@@ -2860,7 +2881,7 @@ class TimeSignature(music21.Music21Object):
         [<music21.beam.Beams <music21.beam.Beam 1/start>>, <music21.beam.Beams <music21.beam.Beam 1/continue>>, <music21.beam.Beams <music21.beam.Beam 1/stop>>]
         '''
 
-        if isinstance(srcList, music21.Music21Object):
+        if isinstance(srcList, base.Music21Object):
             durList = []
             for n in srcList:
                 durList.append(n.duration)
@@ -3082,7 +3103,8 @@ class TimeSignature(music21.Music21Object):
 
 
     def setDisplay(self, value, partitionRequest=None):
-        '''Set an indendent display value
+        '''
+        Set an indendent display value for a meter.
 
         >>> from music21 import *
         >>> a = TimeSignature()
@@ -3470,139 +3492,6 @@ class TimeSignature(music21.Music21Object):
         '''
         #return ((currentQtrPosition * self.quarterLengthToBeatLengthRatio) + 1)
         return self.getBeat(currentQtrPosition)
-    
-
-
-
-
-    def _getMX(self):
-        return musicxmlTranslate.timeSignatureToMx(self)
-        
-#         '''Returns a single mxTime object.
-#         
-#         Compound meters are represented as multiple pairs of beat
-#         and beat-type elements
-# 
-#         >>> from music21 import *
-#         >>> a = TimeSignature('3/4')
-#         >>> b = a.mx
-#         >>> a = TimeSignature('3/4+2/4')
-#         >>> b = a.mx
-# 
-#         '''
-#         #mxTimeList = []
-#         mxTime = musicxml.Time()
-#         
-#         # always get a flat version to display any subivisions created
-#         fList = [(mt.numerator, mt.denominator) for mt in self.displaySequence.flat._partition]
-#         if self.summedNumerator:
-#             # this will try to reduce any common denominators into 
-#             # a common group
-#             fList = fractionToSlashMixed(fList)
-# 
-#         for n,d in fList:
-#             mxBeats = musicxml.Beats(n)
-#             mxBeatType = musicxml.BeatType(d)
-#             mxTime.componentList.append(mxBeats)
-#             mxTime.componentList.append(mxBeatType)
-# 
-#         # can set this to common when necessary
-#         mxTime.set('symbol', None)
-#         # for declaring no time signature present
-#         mxTime.set('senza-misura', None)
-#         #mxTimeList.append(mxTime)
-#         #return mxTimeList
-#         return mxTime
-
-    def _setMX(self, mxTimeList):
-        return musicxmlTranslate.mxToTimeSignature(mxTimeList, self)
-
-#         '''Given an mxTimeList, load this object 
-# 
-#         >>> from music21 import *
-#         >>> a = musicxml.Time()
-#         >>> a.setDefaults()
-#         >>> b = musicxml.Attributes()
-#         >>> b.timeList.append(a)
-#         >>> c = TimeSignature()
-#         >>> c.mx = b.timeList
-#         >>> c.numerator
-#         4
-#         '''
-#         if not common.isListLike(mxTimeList): # if just one
-#             mxTime = mxTimeList
-#         else: # there may be more than one if we have more staffs per part
-#             mxTime = mxTimeList[0]
-# 
-# #         if len(mxTimeList) == 0:
-# #             raise MeterException('cannot create a TimeSignature from an empty MusicXML timeList: %s' % musicxml.Attributes() )
-# #         mxTime = mxTimeList[0] # only one for now
-# 
-#         n = []
-#         d = []
-#         for obj in mxTime.componentList:
-#             if isinstance(obj, musicxml.Beats):
-#                 n.append(obj.charData) # may be 3+2
-#             if isinstance(obj, musicxml.BeatType):
-#                 d.append(obj.charData)
-#         assert len(n) == len(d)
-# 
-#         #n = mxTime.get('beats')
-#         #d = mxTime.get('beat-type')
-#         # convert into a string
-#         msg = []
-#         for i in range(len(n)):
-#             msg.append('%s/%s' % (n[i], d[i]))
-# 
-#         #environLocal.printDebug(['loading meter string:', '+'.join(msg)])
-#         self.load('+'.join(msg))
-
-    mx = property(_getMX, _setMX)
-
-
-    def _getMusicXML(self):
-        return musicxmlTranslate.timeSignatureToMusicXML(self)
-
-#         from music21 import stream, note
-#         tsCopy = copy.deepcopy(self)
-# #         m = stream.Measure()
-# #         m.timeSignature = tsCopy
-# #         m.append(note.Rest())
-#         out = stream.Stream()
-#         out.append(tsCopy)
-#         return out.musicxml
-
-#         mxAttributes = musicxml.Attributes()
-#         # need a lost of time 
-#         mxAttributes.set('time', [self._getMX()])
-# 
-#         mxMeasure = musicxml.Measure()
-#         mxMeasure.setDefaults()
-#         mxMeasure.set('attributes', mxAttributes)
-# 
-#         mxPart = musicxml.Part()
-#         mxPart.setDefaults()
-#         mxPart.append(mxMeasure)
-# 
-#         mxScorePart = musicxml.ScorePart()
-#         mxScorePart.setDefaults()
-#         mxPartList = musicxml.PartList()
-#         mxPartList.append(mxScorePart)
-# 
-#         mxIdentification = musicxml.Identification()
-#         mxIdentification.setDefaults() # will create a composer
-# 
-#         mxScore = musicxml.Score()
-#         mxScore.setDefaults()
-#         mxScore.set('partList', mxPartList)
-#         mxScore.set('identification', mxIdentification)
-#         mxScore.append(mxPart)
-#         return mxScore.xmlStr()
-
-    musicxml = property(_getMusicXML)
-
-
-
 
 
 #-------------------------------------------------------------------------------
@@ -3618,23 +3507,6 @@ class NonPowerOfTwoTimeSignature(TimeSignature):
     pass
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #-------------------------------------------------------------------------------
 class TestExternal(unittest.TestCase):    
     def runTest(self):
@@ -3647,6 +3519,7 @@ class TestExternal(unittest.TestCase):
         a.show()
 
     def testBasic(self):
+        import music21
         from music21 import stream
         a = stream.Stream()
         for meterStrDenominator in [1,2,4,8,16,32]:
@@ -3659,6 +3532,7 @@ class TestExternal(unittest.TestCase):
         a.show()
 
     def testCompound(self):
+        import music21
         from music21 import stream
         import random
 
@@ -3679,6 +3553,7 @@ class TestExternal(unittest.TestCase):
 
 
     def testMeterBeam(self):
+        import music21
         from music21 import stream, note
         ts = music21.meter.TimeSignature('6/8', 2)
         b = [duration.Duration('16th')] * 12
@@ -4014,8 +3889,9 @@ class Test(unittest.TestCase):
 
     def testMusicxmlDirectOut(self):
         # test rendering musicxml directly from meter
+        from music21.musicxml import translate
         ts = TimeSignature('3/8')
-        xmlout = ts.musicxml
+        xmlout = translate.timeSignatureToMusicXML(ts)
 
         match = '<time><beats>3</beats><beat-type>8</beat-type></time>'
         xmlout = xmlout.replace(' ', '')
@@ -4093,7 +3969,7 @@ _DOC_ORDER = [TimeSignature, CompoundTimeSignature]
 
 
 if __name__ == "__main__":
-    # sys.arg test options will be used in mainTest()
+    import music21
     music21.mainTest(Test)
 
 

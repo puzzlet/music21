@@ -6,7 +6,7 @@
 # Authors:      Christopher Ariza
 #               Michael Scott Cuthbert
 #
-# Copyright:    (c) 2009-2012 The music21 Project
+# Copyright:    Copyright © 2009-2012 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 
@@ -26,7 +26,7 @@ import tempfile
 import doctest, unittest
 import xml.sax
 
-import music21
+from music21 import exceptions21
 from music21 import common
 from music21 import xmlnode
 
@@ -35,7 +35,7 @@ _MOD = 'environment.py'
 
 
 #-------------------------------------------------------------------------------
-class EnvironmentException(Exception):
+class EnvironmentException(exceptions21.Music21Exception):
     pass
 
 class UserSettingsException(EnvironmentException):
@@ -158,13 +158,22 @@ class SettingsHandler(xml.sax.ContentHandler):
 
 #-------------------------------------------------------------------------------
 class _EnvironmentCore(object):
-    '''This private class should never be directly created; use the Environment object to access this object. 
+    '''
+    This private class should never be directly created; 
+    use the Environment object to access this object. 
 
-    Multiple Environment instances may exist, but all share access to the same _EnvironmentCore instance that is stored in this module.
+    Multiple Environment instances may exist, but all 
+    share access to the same _EnvironmentCore instance 
+    that is stored in this module.
 
-    The only case in which a new _EnvironmentCore is created if the forcePlatform argument is passed and is different than the stored forcePlatform argument. This is only used in testing. 
+    The only case in which a new _EnvironmentCore is created 
+    is if the forcePlatform argument is passed and is different 
+    than the stored forcePlatform argument. This is only used in 
+    testing--it allows authors to test what the settings on a 
+    different platform (win, Mac, etc.) would be. 
 
-    NOTE: this is a private class. All documentation for public methods should be placed in the Environment class.
+    NOTE: this is a private class. All documentation for 
+    public methods should be placed in the Environment class.
     '''
     def __init__(self, forcePlatform=None):
         # only create one
@@ -252,7 +261,7 @@ class _EnvironmentCore(object):
         # how, only doing read once is a bit more conservative
         #self.read()
 
-        # note: this will not get 'localCorpusPath' as there may be more tn 
+        # note: this will not get 'localCorpusPath' as there may be more than 
         # one value
         if key not in self._ref.keys():
             raise EnvironmentException('no preference: %s' % key)
@@ -286,8 +295,9 @@ class _EnvironmentCore(object):
         # saxutils.escape(msg).encode('UTF-8')
 
         # add local corpus path as a key
-        if key not in self._ref.keys() + ['localCorpusPath']:
-            raise EnvironmentException('no preference: %s' % key)
+        if key not in self._ref.keys():
+            if key != 'localCorpusPath':
+                raise EnvironmentException('no preference: %s' % key)
         if value == '':
             value = None # always replace '' with None
 
@@ -470,6 +480,11 @@ class _EnvironmentCore(object):
             return self._ref['directoryScratch']
 
     def getTempFile(self, suffix=''):
+        '''
+        gets a temporary file with a suffix that will work for a bit.
+        note that the file is closed after finding, so some older versions
+        of python/OSes, etc. will immediately delete the file.
+        '''
         # get the root dir, which may be the user-specified dir
         rootDir = self.getRootTempDir()
 
@@ -558,7 +573,6 @@ _environStorage = {'instance':None, 'forcePlatform':None}
 # create singleton instance
 _environStorage['instance'] = _EnvironmentCore()
 
-
 #-------------------------------------------------------------------------------
 class Environment(object):
     '''
@@ -568,7 +582,8 @@ class Environment(object):
     printing debug and warning messages.
 
     Generally, each module creates a single, module-level instance of Environment, 
-    passing the module's name during creation. 
+    passing the module's name during creation. (This is an efficient operation since
+    the Environment module caches most information from module to module)
 
     For more a user-friendly interface for creating and editing settings, see 
     the :class:`~music21.environment.UserSettings` object. 
@@ -591,9 +606,13 @@ class Environment(object):
         '''
         Create an instance of this object, reading settings from disk. 
 
-        When created from a module, the `modName` parameter stores a string naming the module. This is used to identify the output of printDebug() calls.
+        When created from a module, the `modName` parameter 
+        stores a string naming the module. This is used to 
+        identify the output of printDebug() calls.
 
-        The `forcePlatform` argument can be used for testing.
+        The `forcePlatform` argument can be used for testing what 
+        the environment settings would look like on another 
+        OS platform (e.g., win, nix, darwin).
 
         >>> from music21 import *
         >>> myEnv = environment.Environment()
@@ -744,7 +763,6 @@ class Environment(object):
         Erase could be called from os or command-line arguments after opening
         the file and then a short time delay.
 
-        TODO: Move showImageDirectfrom lilyString.py ; add MIDI
         TODO: Switch to module subprocess to prevent hanging.
         '''
         return _environStorage['instance'].launch(fmt, fp, 
@@ -754,9 +772,10 @@ class Environment(object):
     # methods local to each instance that is created in each module
 
     def printDebug(self, msg, statusLevel=common.DEBUG_USER, format=None):
-        '''Format one or more data elements into string, and print it 
-        to stderr. The first arg can be a list of string; lists are 
-        concatenated with common.formatStr(). 
+        '''
+        Format one or more data elements into string, and print it 
+        to stderr. The first arg can be a list of strings or a string; 
+        lists are concatenated with common.formatStr(). 
         '''
         #if not common.isNum(statusLevel):
         #    raise EnvironmentException('bad statusLevel argument given: %s' % statusLevel)
@@ -778,15 +797,9 @@ class Environment(object):
             msg = common.formatStr(*msg, format=format)
             sys.stderr.write(msg)
 
-
-    def pd(self, msg, statusLevel=common.DEBUG_USER, format=None):
-        '''Shortcut for printDebug. Useful as is typed frequently.
-        '''
-        self.printDebug(msg=msg, statusLevel=statusLevel, format=format)
-
     def warn(self, msg, header=None):
         '''To print a warning to the user, send a list of strings to this
-        method. 
+        method. Similar to printDebug but even if debug is off.
         '''
         if common.isStr(msg):
             msg = [msg] # make into a list
@@ -803,7 +816,10 @@ class Environment(object):
 
 #-------------------------------------------------------------------------------
 class UserSettings(object):
-    '''The UserSettings object provides a simple interface for configuring the user preferences in the :class:`~music21.environment.Environment` object.
+    '''
+    The UserSettings object provides a simple interface 
+    for configuring the user preferences in 
+    the :class:`~music21.environment.Environment` object.
 
     First, create an instance of UserSettings:
 
@@ -815,22 +831,33 @@ class UserSettings(object):
     >>> us.keys()
     ['lilypondBackend', 'pdfPath', 'lilypondVersion', 'graphicsPath', 'warnings', 'showFormat', 'localCorpusSettings', 'vectorPath', 'writeFormat', 'lilypondPath', 'directoryScratch', 'lilypondFormat', 'debug', 'musicxmlPath', 'autoDownload', 'midiPath', 'localCorpusPath']
 
-
-    Third, after finding the desired setting, supply the new value as a Python dictionary key value pair. Setting this value updates the user's settings file. For example, to set the file path to the Application that will be used to open MusicXML files, use the 'musicxmlPath' key. 
-
+    Third, after finding the desired setting, supply the 
+    new value as a Python dictionary key value pair. Setting 
+    this value updates the user's settings file. For example, 
+    to set the file path to the Application that will be used to 
+    open MusicXML files, use the 'musicxmlPath' key. 
 
     >>> #_DOCS_SHOW us['musicxmlPath'] = '/Applications/Finale Reader.app'
     >>> #_DOCS_SHOW us['musicxmlPath']
     u'/Applications/Finale Reader.app'
 
-
-    Note that the 'localCorpusPath' setting operates in a slightly different manner than other settings. Each time the 'localCorpusPath' setting is set, an additional local corpus file path is added to the list of local corpus paths (unless that path is already defined in the list of local corpus paths). To view all local corpus paths, access the 'localCorpusSettings' settings. This setting can also be used to set a complete list of file paths. 
+    Note that the 'localCorpusPath' setting operates in a 
+    slightly different manner than other settings. Each 
+    time the 'localCorpusPath' setting is set, an additional 
+    local corpus file path is added to the list of local corpus 
+    paths (unless that path is already defined in the list 
+    of local corpus paths). To view all local corpus paths, 
+    access the 'localCorpusSettings' settings. This setting can 
+    also be used to set a complete list of file paths. 
 
     >>> #_DOCS_SHOW us['localCorpusPath'] = '~/Documents'
     >>> #_DOCS_SHOW us['localCorpusSettings']
     ['~/Documents']
 
-    Alternatively, the environment.py module provides convenience functions for setting these settings: :func:`~music21.environment.keys`, :func:`~music21.environment.get`, and :func:`~music21.environment.set`.
+    Alternatively, the environment.py module provides convenience 
+    functions for setting these settings: :func:`~music21.environment.keys`, 
+    :func:`~music21.environment.get`, and 
+    :func:`~music21.environment.set`.
     '''
 
     def __init__(self):
@@ -980,7 +1007,6 @@ def get(key):
     us = UserSettings()
     return us[key]
     
-
 #-------------------------------------------------------------------------------
 class Test(unittest.TestCase):
     '''Unit tests
@@ -1131,12 +1157,13 @@ class Test(unittest.TestCase):
 
 #-------------------------------------------------------------------------------
 # define presented order in documentation
+
 _DOC_ORDER = [UserSettings, Environment, Preference]
 
 if __name__ == "__main__":
+    import music21
     music21.mainTest(Test)
 
 
 #------------------------------------------------------------------------------
 # eof
-

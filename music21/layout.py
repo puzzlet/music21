@@ -4,8 +4,9 @@
 # Purpose:      Layout objects 
 #
 # Authors:      Christopher Ariza
+#               Michael Scott Cuthbert
 #
-# Copyright:    (c) 2010 The music21 Project
+# Copyright:    Copyright © 2010, 2012 Michael Scott Cuthbert and the music21 Project
 # License:      LGPL
 #-------------------------------------------------------------------------------
 
@@ -25,14 +26,14 @@
 import string, copy, math
 import unittest, doctest
 
-import music21
+from music21 import base
 from music21 import musicxml
 from music21 import common
 from music21 import spanner
 
 
 #-------------------------------------------------------------------------------
-class PageLayout(music21.Music21Object):
+class PageLayout(base.Music21Object):
     '''Parameters for configuring a page's layout. -- covers both <print new-page> and <page-layout>
     elements in musicxml
 
@@ -54,7 +55,7 @@ class PageLayout(music21.Music21Object):
     True
     '''
     def __init__(self, *args, **keywords):
-        music21.Music21Object.__init__(self)
+        base.Music21Object.__init__(self)
         
         self.pageNumber = None
         self.leftMargin = None
@@ -224,7 +225,7 @@ class PageLayout(music21.Music21Object):
 
 
 #-------------------------------------------------------------------------------
-class SystemLayout(music21.Music21Object):
+class SystemLayout(base.Music21Object):
     '''Parameters for configuring a system's layout.
 
     SystemLayout objects may be found on Measure or Part Streams.    
@@ -244,7 +245,7 @@ class SystemLayout(music21.Music21Object):
     True
     '''
     def __init__(self, *args, **keywords):
-        music21.Music21Object.__init__(self)
+        base.Music21Object.__init__(self)
         
         self.leftMargin = None
         self.rightMargin = None
@@ -391,16 +392,44 @@ class StaffGroupException(spanner.SpannerException):
 
 #-------------------------------------------------------------------------------
 class StaffGroup(spanner.Spanner):
-    '''A StaffGroup defines a collection of one or more Parts, 
+    '''
+    A StaffGroup defines a collection of one or more Parts, 
     specifying that they should be shown together with a bracket, 
     brace, or other symbol, and may have a common name.
+
+    
+    >>> from music21 import *
+    >>> p1 = stream.Part()
+    >>> p2 = stream.Part()
+    >>> p1.append(note.WholeNote('C5'))
+    >>> p1.append(note.WholeNote('D5'))
+    >>> p2.append(note.WholeNote('C3'))
+    >>> p2.append(note.WholeNote('D3'))
+    >>> p3 = stream.Part()
+    >>> p3.append(note.WholeNote('F#4'))
+    >>> p3.append(note.WholeNote('G#4'))
+    >>> s = stream.Score()
+    >>> s.insert(0, p1)
+    >>> s.insert(0, p2)
+    >>> s.insert(0, p3)
+    >>> staffGroup1 = layout.StaffGroup([p1, p2], name='Marimba', abbreviation='Mba.', symbol='brace')
+    >>> staffGroup1.barTogether = 'Mensurstrich'
+    >>> s.insert(0, staffGroup1)
+    >>> staffGroup2 = layout.StaffGroup([p3], name='Xylophone', abbreviation='Xyl.', symbol='bracket')
+    >>> s.insert(0, staffGroup2)
+    >>> #_DOCS_SHOW s.show()
+
+    .. image:: images/layout_StaffGroup_01.*
+        :width: 400
+
+
     '''
     def __init__(self, *arguments, **keywords):
         spanner.Spanner.__init__(self, *arguments, **keywords)
 
         self.name = None # if this group has a name
         self.abbreviation = None 
-        self._symbol = None # can be bracket, line
+        self._symbol = None # can be bracket, line, brace
         # determines if barlines are grouped through; this is group barline
         # in musicxml
         self._barTogether = True
@@ -426,7 +455,7 @@ class StaffGroup(spanner.Spanner):
             self._barTogether = True
         elif value in ['no', False]:
             self._barTogether = False
-        elif value in ['Mensurstrich']:
+        elif hasattr(value, 'lower') and value.lower() == 'mensurstrich':
             self._barTogether = 'Mensurstrich'
         else:
             raise StaffGroupException('the bar together value %s is not acceptable' % value)
@@ -435,6 +464,8 @@ class StaffGroup(spanner.Spanner):
         Get or set the barTogether value, with either Boolean values 
         or yes or no strings.  Or the string 'Mensurstrich' which
         indicates baring between staves but not in staves.
+
+        Currently Mensurstrich i
 
         >>> from music21 import *
         >>> sg = layout.StaffGroup()
@@ -468,16 +499,6 @@ class StaffGroup(spanner.Spanner):
         ''')
 
 
-
-
-
-
-
-
-
-
-
-
 #-------------------------------------------------------------------------------
 class Test(unittest.TestCase):
 
@@ -487,6 +508,7 @@ class Test(unittest.TestCase):
     def testBasic(self):
         import music21
         from music21 import stream, note
+        from music21.musicxml import translate as musicxmlTranslate
         s = stream.Stream()
         
         for i in range(1,11):
@@ -532,8 +554,7 @@ class Test(unittest.TestCase):
 #         self.assertEqual(len(systemLayoutList), 4)
 
         #s.show()
-    
-        mx = s.musicxml
+        raw = musicxmlTranslate.music21ObjectToMusicXML(s)
 
     def testGetPageMeasureNumbers(self):
         from music21 import corpus
@@ -548,16 +569,7 @@ class Test(unittest.TestCase):
 
 #-------------------------------------------------------------------------------
 if __name__ == "__main__":
-#     import sys
-# 
-#     if len(sys.argv) == 1: # normal conditions
-#         music21.mainTest(Test)
-#     elif len(sys.argv) > 1:
-#         a = Test()
-#         a.testBasic()
-# if __name__ == "__main__":
-
-    # sys.arg test options will be used in mainTest()
+    import music21
     music21.mainTest(Test)
 
 
